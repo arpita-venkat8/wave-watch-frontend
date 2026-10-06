@@ -1,15 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import "./App.css";
 
-type Report = {
-  id: number;
-  title: string;
-  location: string;
-  severity: "High" | "Medium" | "Low";
-  status: "Active" | "Under Review" | "Resolved";
-  time: string;
-};
-
 type BackendReport = {
   reportId: string;
   hazardType: string;
@@ -21,41 +12,6 @@ type BackendReport = {
   severity: "HIGH" | "MEDIUM" | "LOW";
   status: string;
 };
-
-const sampleReports: Report[] = [
-  {
-    id: 1,
-    title: "High wave activity",
-    location: "Marina Beach",
-    severity: "High",
-    status: "Active",
-    time: "8 min ago",
-  },
-  {
-    id: 2,
-    title: "Coastal flooding",
-    location: "Besant Nagar",
-    severity: "High",
-    status: "Under Review",
-    time: "24 min ago",
-  },
-  {
-    id: 3,
-    title: "Beach erosion detected",
-    location: "Mahabalipuram",
-    severity: "Medium",
-    status: "Active",
-    time: "41 min ago",
-  },
-  {
-    id: 4,
-    title: "Strong wind conditions",
-    location: "Kovalam",
-    severity: "Low",
-    status: "Resolved",
-    time: "1 hr ago",
-  },
-];
 
 function App() {
   const [showModal, setShowModal] = useState(false);
@@ -71,13 +27,19 @@ function App() {
   const AWS_REGION = "ap-southeast-2";
   const MAP_STYLE = "Standard";
 
-  // Report form states
+  // =========================================================
+  // REPORT FORM STATES
+  // =========================================================
+
   const [hazardType, setHazardType] = useState("High Waves");
   const [location, setLocation] = useState("");
   const [description, setDescription] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Backend reports
+  // =========================================================
+  // BACKEND REPORTS
+  // =========================================================
+
   const [backendReports, setBackendReports] = useState<BackendReport[]>([]);
   const [mapReady, setMapReady] = useState(false);
 
@@ -102,7 +64,7 @@ function App() {
       container: mapContainerRef.current,
       style: styleUrl,
 
-      // INDIA-WIDE INITIAL VIEW
+      // India-wide initial view
       center: [78.9629, 20.5937],
       zoom: 4.5,
     });
@@ -246,7 +208,7 @@ function App() {
         QueryText: searchText,
         MaxResults: 1,
 
-        // ONLY SEARCH WITHIN INDIA
+        // Search only within India
         Filter: {
           IncludeCountries: ["IND"],
         },
@@ -257,7 +219,10 @@ function App() {
 
     const data = await response.json();
 
-    console.log("Amazon Location Search Response:", data);
+    console.log(
+      "Amazon Location Search Response:",
+      data
+    );
 
     if (!response.ok) {
       throw new Error(
@@ -361,10 +326,10 @@ function App() {
             hazardType: hazardType,
             description: description,
 
-            // REAL LOCATION NAME
+            // Real location name
             location: place.locationName,
 
-            // REAL COORDINATES
+            // Real coordinates
             latitude: place.latitude,
             longitude: place.longitude,
           }),
@@ -432,12 +397,18 @@ function App() {
 
       <nav className="navbar">
         <div className="logo">
-          <span className="logo-icon">🌊</span>
+
+          <span className="logo-icon">
+            🌊
+          </span>
 
           <div>
             <h2>WAVE WATCH</h2>
-            <span>Coastal Safety Platform</span>
+            <span>
+              Coastal Safety Platform
+            </span>
           </div>
+
         </div>
 
         <div className="nav-status">
@@ -451,6 +422,7 @@ function App() {
       ===================================================== */}
 
       <section className="hero">
+
         <div className="hero-content">
 
           <div className="hero-badge">
@@ -464,9 +436,9 @@ function App() {
           </h1>
 
           <p>
-            Wave Watch helps communities report, monitor and
-            manage coastal hazards using real-time AWS cloud
-            technology.
+            Wave Watch helps communities report, monitor
+            and manage coastal hazards using real-time
+            AWS cloud technology.
           </p>
 
           <div className="hero-buttons">
@@ -486,11 +458,13 @@ function App() {
             </button>
 
           </div>
+
         </div>
 
         <div className="hero-visual">
 
           <div className="ocean-circle">
+
             <div className="wave wave-one"></div>
             <div className="wave wave-two"></div>
             <div className="wave wave-three"></div>
@@ -498,9 +472,11 @@ function App() {
             <div className="location-pin">
               📍
             </div>
+
           </div>
 
           <div className="floating-card">
+
             <span className="small-label">
               ACTIVE ALERT
             </span>
@@ -512,9 +488,11 @@ function App() {
             <span>
               📍 Marina Beach
             </span>
+
           </div>
 
         </div>
+
       </section>
 
       {/* =====================================================
@@ -524,6 +502,7 @@ function App() {
       <section className="stats">
 
         <div className="stat-card">
+
           <div className="stat-icon red">
             🚨
           </div>
@@ -532,9 +511,11 @@ function App() {
             <span>Active Hazards</span>
             <strong>12</strong>
           </div>
+
         </div>
 
         <div className="stat-card">
+
           <div className="stat-icon orange">
             ⚠️
           </div>
@@ -543,9 +524,11 @@ function App() {
             <span>Under Review</span>
             <strong>7</strong>
           </div>
+
         </div>
 
         <div className="stat-card">
+
           <div className="stat-icon green">
             ✓
           </div>
@@ -554,17 +537,22 @@ function App() {
             <span>Resolved</span>
             <strong>34</strong>
           </div>
+
         </div>
 
         <div className="stat-card">
+
           <div className="stat-icon blue">
             👥
           </div>
 
           <div>
             <span>Citizen Reports</span>
-            <strong>128</strong>
+            <strong>
+              {backendReports.length}
+            </strong>
           </div>
+
         </div>
 
       </section>
@@ -578,6 +566,7 @@ function App() {
         <div className="section-heading">
 
           <div>
+
             <span className="section-tag">
               LIVE MONITORING
             </span>
@@ -587,8 +576,10 @@ function App() {
             </h2>
 
             <p>
-              Monitor reported hazards across coastal regions.
+              Monitor reported hazards across coastal
+              regions.
             </p>
+
           </div>
 
           <div className="live-status">
@@ -616,6 +607,7 @@ function App() {
             <div className="map-header">
 
               <div>
+
                 <h3>
                   Hazard Map
                 </h3>
@@ -623,6 +615,7 @@ function App() {
                 <span>
                   India-wide real-time coastal activity
                 </span>
+
               </div>
 
               <button
@@ -702,6 +695,7 @@ function App() {
             <div className="alert-header">
 
               <div>
+
                 <span className="section-tag">
                   URGENT
                 </span>
@@ -709,6 +703,7 @@ function App() {
                 <h3>
                   Current Alerts
                 </h3>
+
               </div>
 
               <span className="alert-count">
@@ -724,6 +719,7 @@ function App() {
               </div>
 
               <div>
+
                 <strong>
                   High Wave Activity
                 </strong>
@@ -735,6 +731,7 @@ function App() {
                 <small>
                   8 minutes ago
                 </small>
+
               </div>
 
             </div>
@@ -746,6 +743,7 @@ function App() {
               </div>
 
               <div>
+
                 <strong>
                   Coastal Flooding
                 </strong>
@@ -757,6 +755,7 @@ function App() {
                 <small>
                   24 minutes ago
                 </small>
+
               </div>
 
             </div>
@@ -768,6 +767,7 @@ function App() {
               </div>
 
               <div>
+
                 <strong>
                   Strong Winds
                 </strong>
@@ -779,6 +779,7 @@ function App() {
                 <small>
                   41 minutes ago
                 </small>
+
               </div>
 
             </div>
@@ -798,6 +799,7 @@ function App() {
         <div className="section-heading">
 
           <div>
+
             <span className="section-tag">
               CITIZEN REPORTS
             </span>
@@ -809,6 +811,7 @@ function App() {
             <p>
               Latest observations submitted by the community.
             </p>
+
           </div>
 
           <button
@@ -832,49 +835,96 @@ function App() {
             <span>REPORTED</span>
           </div>
 
-          {sampleReports.map(
-            (report) => (
-              <div
-                className="report-row"
-                key={report.id}
-              >
+          {backendReports.length === 0 ? (
 
-                <div className="hazard-name">
+            <div
+              className="report-row"
+              style={{
+                display: "flex",
+                justifyContent: "center",
+                padding: "30px",
+                color: "#94a3b8",
+              }}
+            >
+              No hazard reports available yet.
+            </div>
 
-                  <div className="report-icon">
-                    ⚠️
+          ) : (
+
+            backendReports
+              .slice()
+              .reverse()
+              .map((report) => {
+
+                const severity =
+                  report.severity === "HIGH"
+                    ? "High"
+                    : report.severity === "LOW"
+                      ? "Low"
+                      : "Medium";
+
+                const status =
+                  report.status === "PENDING"
+                    ? "Under Review"
+                    : report.status === "RESOLVED"
+                      ? "Resolved"
+                      : "Active";
+
+                const reportedTime =
+                  report.timestamp
+                    ? new Date(
+                        report.timestamp
+                      ).toLocaleString()
+                    : "Recently";
+
+                return (
+
+                  <div
+                    className="report-row"
+                    key={report.reportId}
+                  >
+
+                    <div className="hazard-name">
+
+                      <div className="report-icon">
+                        ⚠️
+                      </div>
+
+                      <strong>
+                        {report.hazardType}
+                      </strong>
+
+                    </div>
+
+                    <span className="location">
+                      📍{" "}
+                      {report.location ||
+                        "Reported location"}
+                    </span>
+
+                    <span
+                      className={`severity ${severity.toLowerCase()}`}
+                    >
+                      {severity}
+                    </span>
+
+                    <span
+                      className={`report-status ${status
+                        .toLowerCase()
+                        .replace(" ", "-")}`}
+                    >
+                      {status}
+                    </span>
+
+                    <span className="time">
+                      {reportedTime}
+                    </span>
+
                   </div>
 
-                  <strong>
-                    {report.title}
-                  </strong>
+                );
+              })
 
-                </div>
-
-                <span className="location">
-                  📍 {report.location}
-                </span>
-
-                <span
-                  className={`severity ${report.severity.toLowerCase()}`}
-                >
-                  {report.severity}
-                </span>
-
-                <span
-                  className={`report-status ${report.status
-                    .toLowerCase()
-                    .replace(" ", "-")}`}
-                >
-                  {report.status}
-                </span>
-
-                <span className="time">
-                  {report.time}
-                </span>
-
-              </div>
-            )
           )}
 
         </div>
@@ -1016,6 +1066,7 @@ function App() {
                 )
               }
             >
+
               <option>
                 High Waves
               </option>
@@ -1035,6 +1086,7 @@ function App() {
               <option>
                 Other
               </option>
+
             </select>
 
             {/* LOCATION */}
