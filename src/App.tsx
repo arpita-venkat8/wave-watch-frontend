@@ -10,6 +10,18 @@ type Report = {
   time: string;
 };
 
+type BackendReport = {
+  reportId: string;
+  hazardType: string;
+  description: string;
+  latitude: number;
+  longitude: number;
+  timestamp: string;
+  severity: "HIGH" | "MEDIUM" | "LOW" | string;
+  confidence: number;
+  status: "PENDING" | "ACTIVE" | "RESOLVED" | "UNDER_REVIEW" | string;
+};
+
 const sampleReports: Report[] = [
   {
     id: 1,
@@ -51,6 +63,12 @@ function App() {
 
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<any>(null);
+  const mapLoadedRef = useRef(false);
+  const dynamicMarkersRef = useRef<any[]>([]);
+
+  const [backendReports, setBackendReports] = useState<BackendReport[]>([]);
+  const [isLoadingReports, setIsLoadingReports] = useState(false);
+  const [isMapReady, setIsMapReady] = useState(false);
 
   const LOCATION_API_KEY = import.meta.env.VITE_LOCATION_API_KEY as string;
   const AWS_REGION = "ap-southeast-2";
@@ -113,6 +131,9 @@ function App() {
           )
           .addTo(map);
       });
+
+      mapLoadedRef.current = true;
+      setIsMapReady(true);
     });
 
     mapRef.current = map;
@@ -120,8 +141,83 @@ function App() {
     return () => {
       map.remove();
       mapRef.current = null;
+      mapLoadedRef.current = false;
+      dynamicMarkersRef.current = [];
+      setIsMapReady(false);
     };
   }, [LOCATION_API_KEY]);
+
+  const API_URL =
+    "https://cw6ehoudu9.execute-api.ap-southeast-2.amazonaws.com/reports";
+
+  const fetchReports = async () => {
+    setIsLoadingReports(true);
+
+    try {
+      const response = await fetch(API_URL);
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch reports");
+      }
+
+      const data = await response.json();
+      const reports = Array.isArray(data.reports) ? data.reports : [];
+
+      setBackendReports(reports);
+    } catch (error) {
+      console.error("Error fetching reports:", error);
+    } finally {
+      setIsLoadingReports(false);
+    }
+  };
+
+  // Load real reports from DynamoDB through API Gateway
+  useEffect(() => {
+    fetchReports();
+  }, []);
+
+  // Add real DynamoDB reports to the Amazon Location map
+  useEffect(() => {
+    const maplibregl = (window as any).maplibregl;
+
+    if (!mapRef.current || !isMapReady || !mapLoadedRef.current || !maplibregl) {
+      return;
+    }
+
+    dynamicMarkersRef.current.forEach((marker) => marker.remove());
+    dynamicMarkersRef.current = [];
+
+    backendReports.forEach((report) => {
+      if (
+        typeof report.latitude !== "number" ||
+        typeof report.longitude !== "number"
+      ) {
+        return;
+      }
+
+      const severity = String(report.severity).toUpperCase();
+      const color =
+        severity === "HIGH"
+          ? "#ef4444"
+          : severity === "LOW"
+            ? "#22c55e"
+            : "#f59e0b";
+
+      const marker = new maplibregl.Marker({ color })
+        .setLngLat([report.longitude, report.latitude])
+        .setPopup(
+          new maplibregl.Popup({ offset: 25 }).setHTML(
+            `<strong>${report.hazardType}</strong>` +
+              `<br/>Severity: ${severity}` +
+              `<br/>${report.description}` +
+              `<br/><small>Status: ${report.status}</small>`
+          )
+        )
+        .addTo(mapRef.current);
+
+      dynamicMarkersRef.current.push(marker);
+    });
+  }, [backendReports, isMapReady]);
 
   // Resize the map when full-screen mode changes
   useEffect(() => {
@@ -189,6 +285,9 @@ function App() {
       setLocation("");
       setDescription("");
 
+      // Refresh reports so the new DynamoDB record appears immediately
+      await fetchReports();
+
       // Close modal
       setShowModal(false);
 
@@ -200,6 +299,37 @@ function App() {
       setIsSubmitting(false);
     }
   };
+
+  const displayReports: Report[] =
+    backendReports.length > 0
+      ? backendReports
+          .slice()
+          .sort(
+            (a, b) =>
+              new Date(b.timestamp).getTime() -
+              new Date(a.timestamp).getTime()
+          )
+          .map((report, index) => ({
+            id: index + 1,
+            title: report.hazardType,
+            location: `${Number(report.latitude).toFixed(4)}, ${Number(
+              report.longitude
+            ).toFixed(4)}`,
+            severity:
+              String(report.severity).toUpperCase() === "HIGH"
+                ? "High"
+                : String(report.severity).toUpperCase() === "LOW"
+                  ? "Low"
+                  : "Medium",
+            status:
+              String(report.status).toUpperCase() === "RESOLVED"
+                ? "Resolved"
+                : String(report.status).toUpperCase() === "ACTIVE"
+                  ? "Active"
+                  : "Under Review",
+            time: new Date(report.timestamp).toLocaleString(),
+          }))
+      : sampleReports;
 
   return (
     <div className="app">
@@ -514,7 +644,7 @@ function App() {
             <span>REPORTED</span>
           </div>
 
-          {sampleReports.map((report) => (
+          {displayReports.map((report) => (
 
             <div
               className="report-row"
