@@ -1,158 +1,519 @@
-import { useEffect, useState } from "react";
-import type { Schema } from "../amplify/data/resource";
-import { generateClient } from "aws-amplify/data";
-
+import { useState } from "react";
 import "./App.css";
 
-const client = generateClient<Schema>();
+type Report = {
+  id: number;
+  title: string;
+  location: string;
+  severity: "High" | "Medium" | "Low";
+  status: "Active" | "Under Review" | "Resolved";
+  time: string;
+};
+
+const sampleReports: Report[] = [
+  {
+    id: 1,
+    title: "High wave activity",
+    location: "Marina Beach",
+    severity: "High",
+    status: "Active",
+    time: "8 min ago",
+  },
+  {
+    id: 2,
+    title: "Coastal flooding",
+    location: "Besant Nagar",
+    severity: "High",
+    status: "Under Review",
+    time: "24 min ago",
+  },
+  {
+    id: 3,
+    title: "Beach erosion detected",
+    location: "Mahabalipuram",
+    severity: "Medium",
+    status: "Active",
+    time: "41 min ago",
+  },
+  {
+    id: 4,
+    title: "Strong wind conditions",
+    location: "Kovalam",
+    severity: "Low",
+    status: "Resolved",
+    time: "1 hr ago",
+  },
+];
 
 function App() {
-  const [todos, setTodos] = useState<
-    Array<Schema["Todo"]["type"]>
-  >([]);
-
-  useEffect(() => {
-    const sub = client.models.Todo.observeQuery().subscribe({
-      next: (data) => {
-        setTodos([...data.items]);
-      },
-    });
-
-    return () => sub.unsubscribe();
-  }, []);
-
-  async function createTodo() {
-    const content = window.prompt(
-      "Enter coastal hazard or observation:"
-    );
-
-    if (!content || !content.trim()) {
-      return;
-    }
-
-    await client.models.Todo.create({
-      content: content.trim(),
-    });
-  }
+  const [showModal, setShowModal] = useState(false);
 
   return (
-    <main>
-      {/* Header */}
-      <section className="hero">
-        <div className="badge">
-          🌊 WAVE WATCH
-        </div>
+    <div className="app">
 
-        <h1>
-          Coastal Hazard
-          <br />
-          Monitoring System
-        </h1>
-
-        <p className="subtitle">
-          Report, monitor and manage coastal hazards
-          with real-time cloud technology.
-        </p>
-
-        <button onClick={createTodo}>
-          + Report a Hazard
-        </button>
-      </section>
-
-      {/* Dashboard */}
-      <section className="dashboard">
-        <div className="section-header">
+      {/* NAVBAR */}
+      <nav className="navbar">
+        <div className="logo">
+          <span className="logo-icon">🌊</span>
           <div>
-            <h2>Recent Reports</h2>
-            <p>
-              Live coastal hazard observations
-            </p>
-          </div>
-
-          <div className="status">
-            <span className="status-dot"></span>
-            Live
+            <h2>WAVE WATCH</h2>
+            <span>Coastal Safety Platform</span>
           </div>
         </div>
 
-        {todos.length === 0 ? (
-          <div className="empty-state">
-            <div className="empty-icon">🌊</div>
+        <div className="nav-status">
+          <span className="live-dot"></span>
+          System Live
+        </div>
+      </nav>
 
-            <h3>No reports yet</h3>
+      {/* HERO */}
+      <section className="hero">
 
-            <p>
-              Be the first to report a coastal
-              hazard or observation.
-            </p>
+        <div className="hero-content">
 
-            <button onClick={createTodo}>
-              + Create First Report
+          <div className="hero-badge">
+            🌊 REAL-TIME COASTAL MONITORING
+          </div>
+
+          <h1>
+            Stay Ahead of
+            <br />
+            <span>Coastal Hazards.</span>
+          </h1>
+
+          <p>
+            Wave Watch helps communities report, monitor and
+            manage coastal hazards using real-time AWS cloud
+            technology.
+          </p>
+
+          <div className="hero-buttons">
+            <button
+              className="primary-button"
+              onClick={() => setShowModal(true)}
+            >
+              🚨 Report a Hazard
+            </button>
+
+            <button className="secondary-button">
+              🗺️ View Live Map
             </button>
           </div>
-        ) : (
-          <ul>
-            {todos.map((todo) => (
-              <li key={todo.id}>
-                <div className="hazard-icon">
+
+        </div>
+
+        <div className="hero-visual">
+
+          <div className="ocean-circle">
+            <div className="wave wave-one"></div>
+            <div className="wave wave-two"></div>
+            <div className="wave wave-three"></div>
+
+            <div className="location-pin">
+              📍
+            </div>
+          </div>
+
+          <div className="floating-card">
+            <span className="small-label">ACTIVE ALERT</span>
+            <strong>High Wave Activity</strong>
+            <span>📍 Marina Beach</span>
+          </div>
+
+        </div>
+
+      </section>
+
+      {/* STATISTICS */}
+      <section className="stats">
+
+        <div className="stat-card">
+          <div className="stat-icon red">🚨</div>
+          <div>
+            <span>Active Hazards</span>
+            <strong>12</strong>
+          </div>
+        </div>
+
+        <div className="stat-card">
+          <div className="stat-icon orange">⚠️</div>
+          <div>
+            <span>Under Review</span>
+            <strong>7</strong>
+          </div>
+        </div>
+
+        <div className="stat-card">
+          <div className="stat-icon green">✓</div>
+          <div>
+            <span>Resolved</span>
+            <strong>34</strong>
+          </div>
+        </div>
+
+        <div className="stat-card">
+          <div className="stat-icon blue">👥</div>
+          <div>
+            <span>Citizen Reports</span>
+            <strong>128</strong>
+          </div>
+        </div>
+
+      </section>
+
+      {/* MONITORING SECTION */}
+      <section className="monitoring">
+
+        <div className="section-heading">
+          <div>
+            <span className="section-tag">LIVE MONITORING</span>
+            <h2>Coastal Hazard Overview</h2>
+            <p>
+              Monitor reported hazards across coastal regions.
+            </p>
+          </div>
+
+          <div className="live-status">
+            <span></span>
+            LIVE
+          </div>
+        </div>
+
+        <div className="monitor-grid">
+
+          {/* MAP */}
+          <div className="map-card">
+
+            <div className="map-header">
+              <div>
+                <h3>Hazard Map</h3>
+                <span>Real-time coastal activity</span>
+              </div>
+
+              <button className="map-button">
+                Full Map ↗
+              </button>
+            </div>
+
+            <div className="fake-map">
+
+              <div className="map-grid"></div>
+
+              <div className="coastline"></div>
+
+              <div className="map-marker marker-one">
+                <span></span>
+              </div>
+
+              <div className="map-marker marker-two">
+                <span></span>
+              </div>
+
+              <div className="map-marker marker-three">
+                <span></span>
+              </div>
+
+              <div className="map-label label-one">
+                Marina
+              </div>
+
+              <div className="map-label label-two">
+                Besant Nagar
+              </div>
+
+              <div className="map-label label-three">
+                Mahabalipuram
+              </div>
+
+              <div className="map-center">
+                🌊
+              </div>
+
+            </div>
+
+            <div className="map-legend">
+              <span>
+                <i className="legend-red"></i>
+                High
+              </span>
+
+              <span>
+                <i className="legend-orange"></i>
+                Medium
+              </span>
+
+              <span>
+                <i className="legend-green"></i>
+                Low
+              </span>
+            </div>
+
+          </div>
+
+          {/* ALERT PANEL */}
+          <div className="alert-card">
+
+            <div className="alert-header">
+              <div>
+                <span className="section-tag">URGENT</span>
+                <h3>Current Alerts</h3>
+              </div>
+
+              <span className="alert-count">3</span>
+            </div>
+
+            <div className="alert-item high">
+              <div className="alert-icon">🌊</div>
+
+              <div>
+                <strong>High Wave Activity</strong>
+                <span>Marina Beach</span>
+                <small>8 minutes ago</small>
+              </div>
+            </div>
+
+            <div className="alert-item medium">
+              <div className="alert-icon">🌧️</div>
+
+              <div>
+                <strong>Coastal Flooding</strong>
+                <span>Besant Nagar</span>
+                <small>24 minutes ago</small>
+              </div>
+            </div>
+
+            <div className="alert-item low">
+              <div className="alert-icon">💨</div>
+
+              <div>
+                <strong>Strong Winds</strong>
+                <span>Kovalam</span>
+                <small>41 minutes ago</small>
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+
+      </section>
+
+      {/* RECENT REPORTS */}
+      <section className="reports">
+
+        <div className="section-heading">
+
+          <div>
+            <span className="section-tag">
+              CITIZEN REPORTS
+            </span>
+
+            <h2>Recent Hazard Reports</h2>
+
+            <p>
+              Latest observations submitted by the community.
+            </p>
+          </div>
+
+          <button
+            className="primary-button small"
+            onClick={() => setShowModal(true)}
+          >
+            + New Report
+          </button>
+
+        </div>
+
+        <div className="reports-table">
+
+          <div className="table-header">
+            <span>HAZARD</span>
+            <span>LOCATION</span>
+            <span>SEVERITY</span>
+            <span>STATUS</span>
+            <span>REPORTED</span>
+          </div>
+
+          {sampleReports.map((report) => (
+            <div className="report-row" key={report.id}>
+
+              <div className="hazard-name">
+                <div className="report-icon">
                   ⚠️
                 </div>
 
-                <div className="hazard-content">
-                  <h3>{todo.content}</h3>
+                <strong>{report.title}</strong>
+              </div>
 
-                  <span>
-                    Coastal observation
-                  </span>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
+              <span className="location">
+                📍 {report.location}
+              </span>
+
+              <span className={`severity ${report.severity.toLowerCase()}`}>
+                {report.severity}
+              </span>
+
+              <span
+                className={`report-status ${report.status
+                  .toLowerCase()
+                  .replace(" ", "-")}`}
+              >
+                {report.status}
+              </span>
+
+              <span className="time">
+                {report.time}
+              </span>
+
+            </div>
+          ))}
+
+        </div>
+
       </section>
 
-      {/* Information cards */}
-      <section className="features">
-        <div className="feature-card">
-          <div className="feature-icon">📍</div>
-          <h3>Location Based</h3>
+      {/* AWS ARCHITECTURE */}
+      <section className="aws-section">
+
+        <div className="section-heading center">
+
+          <span className="section-tag">
+            CLOUD INFRASTRUCTURE
+          </span>
+
+          <h2>Powered by AWS</h2>
+
           <p>
-            Track coastal hazards using
-            location-aware monitoring.
+            Built with scalable AWS services for reliable
+            coastal hazard monitoring.
           </p>
+
         </div>
 
-        <div className="feature-card">
-          <div className="feature-icon">⚡</div>
-          <h3>Real-Time Reports</h3>
-          <p>
-            Receive and manage hazard
-            observations in real time.
-          </p>
+        <div className="aws-services">
+
+          <div>
+            <strong>⚡</strong>
+            <span>Amplify</span>
+          </div>
+
+          <div>
+            <strong>🔗</strong>
+            <span>API Gateway</span>
+          </div>
+
+          <div>
+            <strong>λ</strong>
+            <span>Lambda</span>
+          </div>
+
+          <div>
+            <strong>🗄️</strong>
+            <span>DynamoDB</span>
+          </div>
+
+          <div>
+            <strong>📦</strong>
+            <span>S3</span>
+          </div>
+
+          <div>
+            <strong>📍</strong>
+            <span>Location</span>
+          </div>
+
         </div>
 
-        <div className="feature-card">
-          <div className="feature-icon">☁️</div>
-          <h3>AWS Powered</h3>
-          <p>
-            Built using scalable AWS cloud
-            services and Amplify.
-          </p>
-        </div>
       </section>
 
-      {/* Footer */}
+      {/* FOOTER */}
       <footer>
-        <p>
-          🌊 <strong>Wave Watch</strong>
-          {" "}• Coastal Hazard Monitoring
-        </p>
+
+        <div className="footer-logo">
+          🌊 WAVE WATCH
+        </div>
 
         <span>
-          Powered by AWS Amplify
+          Coastal Hazard Monitoring System
         </span>
+
+        <span>
+          Built with AWS ☁️
+        </span>
+
       </footer>
-    </main>
+
+      {/* REPORT MODAL */}
+      {showModal && (
+        <div
+          className="modal-overlay"
+          onClick={() => setShowModal(false)}
+        >
+
+          <div
+            className="modal"
+            onClick={(e) => e.stopPropagation()}
+          >
+
+            <button
+              className="close-button"
+              onClick={() => setShowModal(false)}
+            >
+              ×
+            </button>
+
+            <div className="modal-icon">
+              🚨
+            </div>
+
+            <h2>Report a Coastal Hazard</h2>
+
+            <p>
+              Help keep coastal communities safe by
+              reporting what you observe.
+            </p>
+
+            <label>
+              Hazard Type
+            </label>
+
+            <select>
+              <option>High Waves</option>
+              <option>Coastal Flooding</option>
+              <option>Beach Erosion</option>
+              <option>Strong Winds</option>
+              <option>Other</option>
+            </select>
+
+            <label>
+              Location
+            </label>
+
+            <input
+              type="text"
+              placeholder="Enter coastal location"
+            />
+
+            <label>
+              Description
+            </label>
+
+            <textarea
+              placeholder="Describe the hazard..."
+              rows={4}
+            ></textarea>
+
+            <button className="primary-button submit">
+              Submit Report
+            </button>
+
+          </div>
+
+        </div>
+      )}
+
+    </div>
   );
 }
 
