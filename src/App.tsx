@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import "./App.css";
 
 type Report = {
@@ -47,6 +47,99 @@ const sampleReports: Report[] = [
 
 function App() {
   const [showModal, setShowModal] = useState(false);
+  const [isMapExpanded, setIsMapExpanded] = useState(false);
+
+  const mapContainerRef = useRef<HTMLDivElement | null>(null);
+  const mapRef = useRef<any>(null);
+
+  const LOCATION_API_KEY = import.meta.env.VITE_LOCATION_API_KEY as string;
+  const AWS_REGION = "ap-southeast-2";
+  const MAP_STYLE = "Standard";
+
+  // Initialize Amazon Location Service map with MapLibre
+  useEffect(() => {
+    const maplibregl = (window as any).maplibregl;
+
+    if (!mapContainerRef.current || !LOCATION_API_KEY || !maplibregl) {
+      return;
+    }
+
+    const styleUrl =
+      `https://maps.geo.${AWS_REGION}.amazonaws.com/v2/styles/` +
+      `${MAP_STYLE}/descriptor?key=${encodeURIComponent(LOCATION_API_KEY)}`;
+
+    const map = new maplibregl.Map({
+      container: mapContainerRef.current,
+      style: styleUrl,
+      center: [80.2707, 13.0827],
+      zoom: 10,
+    });
+
+    map.addControl(new maplibregl.NavigationControl(), "top-right");
+
+    map.on("load", () => {
+      const hazards = [
+        {
+          name: "Marina Beach",
+          coordinates: [80.282, 13.049],
+          severity: "High",
+        },
+        {
+          name: "Besant Nagar",
+          coordinates: [80.267, 12.999],
+          severity: "High",
+        },
+        {
+          name: "Mahabalipuram",
+          coordinates: [80.192, 12.626],
+          severity: "Medium",
+        },
+      ];
+
+      hazards.forEach((hazard) => {
+        const color =
+          hazard.severity === "High"
+            ? "#ef4444"
+            : hazard.severity === "Medium"
+              ? "#f59e0b"
+              : "#22c55e";
+
+        new maplibregl.Marker({ color })
+          .setLngLat(hazard.coordinates)
+          .setPopup(
+            new maplibregl.Popup({ offset: 25 }).setHTML(
+              `<strong>${hazard.name}</strong><br/>Severity: ${hazard.severity}`
+            )
+          )
+          .addTo(map);
+      });
+    });
+
+    mapRef.current = map;
+
+    return () => {
+      map.remove();
+      mapRef.current = null;
+    };
+  }, [LOCATION_API_KEY]);
+
+  // Resize the map when full-screen mode changes
+  useEffect(() => {
+    if (!mapRef.current) return;
+
+    const frame = requestAnimationFrame(() => {
+      mapRef.current.resize();
+    });
+
+    return () => cancelAnimationFrame(frame);
+  }, [isMapExpanded]);
+
+  const scrollToMap = () => {
+    document.getElementById("hazard-map")?.scrollIntoView({
+      behavior: "smooth",
+      block: "center",
+    });
+  };
 
   // Report form states
   const [hazardType, setHazardType] = useState("High Waves");
@@ -158,7 +251,7 @@ function App() {
               🚨 Report a Hazard
             </button>
 
-            <button className="secondary-button">
+            <button className="secondary-button" onClick={scrollToMap}>
               🗺️ View Live Map
             </button>
 
@@ -258,7 +351,10 @@ function App() {
         <div className="monitor-grid">
 
           {/* MAP */}
-          <div className="map-card">
+          <div
+            id="hazard-map"
+            className={`map-card ${isMapExpanded ? "expanded" : ""}`}
+          >
 
             <div className="map-header">
 
@@ -267,46 +363,39 @@ function App() {
                 <span>Real-time coastal activity</span>
               </div>
 
-              <button className="map-button">
-                Full Map ↗
+              <button
+                className="map-button"
+                onClick={() => setIsMapExpanded((current) => !current)}
+              >
+                {isMapExpanded ? "Close Map ✕" : "Full Map ↗"}
               </button>
 
             </div>
 
-            <div className="fake-map">
+            <div className="real-map">
+              <div
+                ref={mapContainerRef}
+                style={{ width: "100%", height: "100%" }}
+              />
 
-              <div className="map-grid"></div>
-
-              <div className="coastline"></div>
-
-              <div className="map-marker marker-one">
-                <span></span>
-              </div>
-
-              <div className="map-marker marker-two">
-                <span></span>
-              </div>
-
-              <div className="map-marker marker-three">
-                <span></span>
-              </div>
-
-              <div className="map-label label-one">
-                Marina
-              </div>
-
-              <div className="map-label label-two">
-                Besant Nagar
-              </div>
-
-              <div className="map-label label-three">
-                Mahabalipuram
-              </div>
-
-              <div className="map-center">
-                🌊
-              </div>
-
+              {!LOCATION_API_KEY && (
+                <div
+                  style={{
+                    position: "absolute",
+                    inset: 0,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    background: "rgba(6, 17, 31, 0.88)",
+                    color: "#e2e8f0",
+                    padding: "20px",
+                    textAlign: "center",
+                    zIndex: 2,
+                  }}
+                >
+                  Amazon Location API key is not configured.
+                </div>
+              )}
             </div>
 
             <div className="map-legend">
