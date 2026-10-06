@@ -34,6 +34,7 @@ function App() {
   const [hazardType, setHazardType] = useState("High Waves");
   const [location, setLocation] = useState("");
   const [description, setDescription] = useState("");
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // =========================================================
@@ -263,6 +264,49 @@ function App() {
   };
 
   // =========================================================
+  // UPLOAD PHOTO TO S3 USING A PRESIGNED URL
+  // =========================================================
+
+  const uploadPhotoToS3 = async (file: File) => {
+    const urlResponse = await fetch(
+      "https://cw6ehoudu9.execute-api.ap-southeast-2.amazonaws.com/reports",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          action: "upload-url",
+          fileName: file.name,
+          contentType: file.type || "image/jpeg",
+        }),
+      }
+    );
+
+    const urlData = await urlResponse.json();
+
+    if (!urlResponse.ok) {
+      throw new Error(
+        urlData.error || "Could not generate photo upload URL."
+      );
+    }
+
+    const uploadResponse = await fetch(urlData.uploadUrl, {
+      method: "PUT",
+      headers: {
+        "Content-Type": file.type || "image/jpeg",
+      },
+      body: file,
+    });
+
+    if (!uploadResponse.ok) {
+      throw new Error("Photo upload failed. Please try again.");
+    }
+
+    return urlData.photoKey as string;
+  };
+
+  // =========================================================
   // SUBMIT HAZARD REPORT
   // =========================================================
 
@@ -310,7 +354,25 @@ function App() {
       }
 
       // -----------------------------------------------------
-      // STEP 3: SEND REAL COORDINATES TO API GATEWAY
+      // STEP 3: UPLOAD PHOTO TO S3 (IF SELECTED)
+      // -----------------------------------------------------
+
+      let photoKey = "";
+
+      if (photoFile) {
+        if (!photoFile.type.startsWith("image/")) {
+          throw new Error("Please select an image file.");
+        }
+
+        if (photoFile.size > 10 * 1024 * 1024) {
+          throw new Error("Photo must be smaller than 10 MB.");
+        }
+
+        photoKey = await uploadPhotoToS3(photoFile);
+      }
+
+      // -----------------------------------------------------
+      // STEP 4: SEND REAL COORDINATES + PHOTO KEY TO API
       // -----------------------------------------------------
 
       const response = await fetch(
@@ -332,6 +394,9 @@ function App() {
             // Real coordinates
             latitude: place.latitude,
             longitude: place.longitude,
+
+            // S3 photo object key
+            photoKey: photoKey,
           }),
         }
       );
@@ -348,13 +413,13 @@ function App() {
       console.log("AWS Response:", data);
 
       // -----------------------------------------------------
-      // STEP 4: REFRESH REPORTS
+      // STEP 5: REFRESH REPORTS
       // -----------------------------------------------------
 
       await fetchReports();
 
       // -----------------------------------------------------
-      // STEP 5: SUCCESS
+      // STEP 6: SUCCESS
       // -----------------------------------------------------
 
       alert(
@@ -365,6 +430,7 @@ function App() {
       setHazardType("High Waves");
       setLocation("");
       setDescription("");
+      setPhotoFile(null);
 
       // Close modal
       setShowModal(false);
@@ -1123,6 +1189,38 @@ function App() {
               }
             ></textarea>
 
+            {/* PHOTO */}
+
+            <label>
+              Photo Evidence{" "}
+              <span style={{ opacity: 0.65 }}>
+                (optional)
+              </span>
+            </label>
+
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(e) =>
+                setPhotoFile(
+                  e.target.files?.[0] || null
+                )
+              }
+            />
+
+            {photoFile && (
+              <div
+                style={{
+                  marginTop: "8px",
+                  marginBottom: "16px",
+                  fontSize: "13px",
+                  color: "#94a3b8",
+                }}
+              >
+                📷 Selected: {photoFile.name}
+              </div>
+            )}
+
             {/* SUBMIT */}
 
             <button
@@ -1131,7 +1229,9 @@ function App() {
               disabled={isSubmitting}
             >
               {isSubmitting
-                ? "Finding location & submitting..."
+                ? photoFile
+                  ? "Finding location & uploading..."
+                  : "Finding location & submitting..."
                 : "Submit Report"}
             </button>
 
