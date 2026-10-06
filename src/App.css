@@ -1392,3 +1392,81 @@ main > div a:hover {
     width: 100%;
   }
 }
+/* =========================================
+   REAL AMAZON LOCATION MAP
+   ========================================= */
+
+.real-map {
+  width: 100%;
+  height: 330px;
+  position: relative;
+  overflow: hidden;
+  border-radius: 15px;
+}
+
+/* Make MapLibre fill the entire map container */
+.real-map .maplibregl-map {
+  width: 100%;
+  height: 100%;
+}
+
+/* MapLibre navigation controls */
+.real-map .maplibregl-ctrl-group {
+  background: rgba(6, 17, 31, 0.9);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.real-map .maplibregl-ctrl-group button {
+  margin: 0;
+  width: 30px;
+  height: 30px;
+  background-color: transparent;
+}
+
+.real-map .maplibregl-ctrl-group button:hover {
+  background-color: rgba(56, 189, 248, 0.15);
+}
+
+/* Full map mode */
+.map-card.expanded {
+  position: fixed;
+  inset: 20px;
+  z-index: 9999;
+  padding: 25px;
+  background: #0b1b30;
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  box-shadow: 0 30px 100px rgba(0, 0, 0, 0.7);
+}
+
+.map-card.expanded .real-map {
+  height: calc(100vh - 150px);
+}
+
+/* Full map button */
+.map-button {
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+
+.map-button:hover {
+  border-color: rgba(56, 189, 248, 0.5);
+  color: #38bdf8;
+}
+
+/* Mobile */
+@media (max-width: 600px) {
+  .real-map {
+    height: 260px;
+  }
+
+  .map-card.expanded {
+    inset: 10px;
+    padding: 15px;
+  }
+
+  .map-card.expanded .real-map {
+    height: calc(100vh - 120px);
+  }
+}
