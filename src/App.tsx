@@ -74,7 +74,10 @@ function App() {
   const AWS_REGION = "ap-southeast-2";
   const MAP_STYLE = "Standard";
 
-  // Initialize Amazon Location Service map with MapLibre
+  const API_URL =
+    "https://cw6ehoudu9.execute-api.ap-southeast-2.amazonaws.com/reports";
+
+  // Initialize Amazon Location Service map
   useEffect(() => {
     const maplibregl = (window as any).maplibregl;
 
@@ -147,9 +150,7 @@ function App() {
     };
   }, [LOCATION_API_KEY]);
 
-  const API_URL =
-    "https://cw6ehoudu9.execute-api.ap-southeast-2.amazonaws.com/reports";
-
+  // Fetch reports from DynamoDB through API Gateway
   const fetchReports = async () => {
     setIsLoadingReports(true);
 
@@ -161,7 +162,10 @@ function App() {
       }
 
       const data = await response.json();
-      const reports = Array.isArray(data.reports) ? data.reports : [];
+
+      const reports = Array.isArray(data.reports)
+        ? data.reports
+        : [];
 
       setBackendReports(reports);
     } catch (error) {
@@ -171,19 +175,25 @@ function App() {
     }
   };
 
-  // Load real reports from DynamoDB through API Gateway
+  // Load reports when page opens
   useEffect(() => {
     fetchReports();
   }, []);
 
-  // Add real DynamoDB reports to the Amazon Location map
+  // Add real reports as map markers
   useEffect(() => {
     const maplibregl = (window as any).maplibregl;
 
-    if (!mapRef.current || !isMapReady || !mapLoadedRef.current || !maplibregl) {
+    if (
+      !mapRef.current ||
+      !isMapReady ||
+      !mapLoadedRef.current ||
+      !maplibregl
+    ) {
       return;
     }
 
+    // Remove old dynamic markers
     dynamicMarkersRef.current.forEach((marker) => marker.remove());
     dynamicMarkersRef.current = [];
 
@@ -196,6 +206,7 @@ function App() {
       }
 
       const severity = String(report.severity).toUpperCase();
+
       const color =
         severity === "HIGH"
           ? "#ef4444"
@@ -219,7 +230,7 @@ function App() {
     });
   }, [backendReports, isMapReady]);
 
-  // Resize the map when full-screen mode changes
+  // Resize map when expanded
   useEffect(() => {
     if (!mapRef.current) return;
 
@@ -243,7 +254,7 @@ function App() {
   const [description, setDescription] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Submit report to AWS API Gateway
+  // Submit report
   const submitReport = async () => {
     if (!location.trim() || !description.trim()) {
       alert("Please enter the location and description.");
@@ -253,24 +264,18 @@ function App() {
     setIsSubmitting(true);
 
     try {
-      const response = await fetch(
-        "https://cw6ehoudu9.execute-api.ap-southeast-2.amazonaws.com/reports",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            hazardType: hazardType,
-            description: description,
-
-            // Temporary Chennai coordinates
-            // We will replace these with AWS Location Service later
-            latitude: 13.0827,
-            longitude: 80.2707,
-          }),
-        }
-      );
+      const response = await fetch(API_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          hazardType: hazardType,
+          description: description,
+          latitude: 13.0827,
+          longitude: 80.2707,
+        }),
+      });
 
       const data = await response.json();
 
@@ -280,15 +285,13 @@ function App() {
 
       alert("🚨 Hazard report submitted successfully!");
 
-      // Clear form
       setHazardType("High Waves");
       setLocation("");
       setDescription("");
 
-      // Refresh reports so the new DynamoDB record appears immediately
+      // Fetch latest reports immediately
       await fetchReports();
 
-      // Close modal
       setShowModal(false);
 
       console.log("AWS Response:", data);
@@ -333,7 +336,6 @@ function App() {
 
   return (
     <div className="app">
-
       {/* NAVBAR */}
       <nav className="navbar">
         <div className="logo">
@@ -353,9 +355,7 @@ function App() {
 
       {/* HERO */}
       <section className="hero">
-
         <div className="hero-content">
-
           <div className="hero-badge">
             🌊 REAL-TIME COASTAL MONITORING
           </div>
@@ -373,7 +373,6 @@ function App() {
           </p>
 
           <div className="hero-buttons">
-
             <button
               className="primary-button"
               onClick={() => setShowModal(true)}
@@ -381,26 +380,22 @@ function App() {
               🚨 Report a Hazard
             </button>
 
-            <button className="secondary-button" onClick={scrollToMap}>
+            <button
+              className="secondary-button"
+              onClick={scrollToMap}
+            >
               🗺️ View Live Map
             </button>
-
           </div>
-
         </div>
 
         <div className="hero-visual">
-
           <div className="ocean-circle">
-
             <div className="wave wave-one"></div>
             <div className="wave wave-two"></div>
             <div className="wave wave-three"></div>
 
-            <div className="location-pin">
-              📍
-            </div>
-
+            <div className="location-pin">📍</div>
           </div>
 
           <div className="floating-card">
@@ -408,14 +403,11 @@ function App() {
             <strong>High Wave Activity</strong>
             <span>📍 Marina Beach</span>
           </div>
-
         </div>
-
       </section>
 
       {/* STATISTICS */}
       <section className="stats">
-
         <div className="stat-card">
           <div className="stat-icon red">🚨</div>
 
@@ -451,14 +443,11 @@ function App() {
             <strong>128</strong>
           </div>
         </div>
-
       </section>
 
       {/* MONITORING SECTION */}
       <section className="monitoring">
-
         <div className="section-heading">
-
           <div>
             <span className="section-tag">
               LIVE MONITORING
@@ -475,19 +464,17 @@ function App() {
             <span></span>
             LIVE
           </div>
-
         </div>
 
         <div className="monitor-grid">
-
           {/* MAP */}
           <div
             id="hazard-map"
-            className={`map-card ${isMapExpanded ? "expanded" : ""}`}
+            className={`map-card ${
+              isMapExpanded ? "expanded" : ""
+            }`}
           >
-
             <div className="map-header">
-
               <div>
                 <h3>Hazard Map</h3>
                 <span>Real-time coastal activity</span>
@@ -495,17 +482,23 @@ function App() {
 
               <button
                 className="map-button"
-                onClick={() => setIsMapExpanded((current) => !current)}
+                onClick={() =>
+                  setIsMapExpanded((current) => !current)
+                }
               >
-                {isMapExpanded ? "Close Map ✕" : "Full Map ↗"}
+                {isMapExpanded
+                  ? "Close Map ✕"
+                  : "Full Map ↗"}
               </button>
-
             </div>
 
             <div className="real-map">
               <div
                 ref={mapContainerRef}
-                style={{ width: "100%", height: "100%" }}
+                style={{
+                  width: "100%",
+                  height: "100%",
+                }}
               />
 
               {!LOCATION_API_KEY && (
@@ -529,7 +522,6 @@ function App() {
             </div>
 
             <div className="map-legend">
-
               <span>
                 <i className="legend-red"></i>
                 High
@@ -544,16 +536,12 @@ function App() {
                 <i className="legend-green"></i>
                 Low
               </span>
-
             </div>
-
           </div>
 
           {/* ALERT PANEL */}
           <div className="alert-card">
-
             <div className="alert-header">
-
               <div>
                 <span className="section-tag">
                   URGENT
@@ -563,11 +551,9 @@ function App() {
               </div>
 
               <span className="alert-count">3</span>
-
             </div>
 
             <div className="alert-item high">
-
               <div className="alert-icon">🌊</div>
 
               <div>
@@ -575,11 +561,9 @@ function App() {
                 <span>Marina Beach</span>
                 <small>8 minutes ago</small>
               </div>
-
             </div>
 
             <div className="alert-item medium">
-
               <div className="alert-icon">🌧️</div>
 
               <div>
@@ -587,11 +571,9 @@ function App() {
                 <span>Besant Nagar</span>
                 <small>24 minutes ago</small>
               </div>
-
             </div>
 
             <div className="alert-item low">
-
               <div className="alert-icon">💨</div>
 
               <div>
@@ -599,20 +581,14 @@ function App() {
                 <span>Kovalam</span>
                 <small>41 minutes ago</small>
               </div>
-
             </div>
-
           </div>
-
         </div>
-
       </section>
 
       {/* RECENT REPORTS */}
       <section className="reports">
-
         <div className="section-heading">
-
           <div>
             <span className="section-tag">
               CITIZEN REPORTS
@@ -631,11 +607,9 @@ function App() {
           >
             + New Report
           </button>
-
         </div>
 
         <div className="reports-table">
-
           <div className="table-header">
             <span>HAZARD</span>
             <span>LOCATION</span>
@@ -644,58 +618,61 @@ function App() {
             <span>REPORTED</span>
           </div>
 
-          {displayReports.map((report) => (
-
+          {isLoadingReports ? (
             <div
               className="report-row"
-              key={report.id}
+              style={{
+                display: "flex",
+                justifyContent: "center",
+                padding: "25px",
+              }}
             >
+              Loading reports...
+            </div>
+          ) : (
+            displayReports.map((report) => (
+              <div
+                className="report-row"
+                key={report.id}
+              >
+                <div className="hazard-name">
+                  <div className="report-icon">
+                    ⚠️
+                  </div>
 
-              <div className="hazard-name">
-
-                <div className="report-icon">
-                  ⚠️
+                  <strong>{report.title}</strong>
                 </div>
 
-                <strong>{report.title}</strong>
+                <span className="location">
+                  📍 {report.location}
+                </span>
 
+                <span
+                  className={`severity ${report.severity.toLowerCase()}`}
+                >
+                  {report.severity}
+                </span>
+
+                <span
+                  className={`report-status ${report.status
+                    .toLowerCase()
+                    .replace(" ", "-")}`}
+                >
+                  {report.status}
+                </span>
+
+                <span className="time">
+                  {report.time}
+                </span>
               </div>
-
-              <span className="location">
-                📍 {report.location}
-              </span>
-
-              <span
-                className={`severity ${report.severity.toLowerCase()}`}
-              >
-                {report.severity}
-              </span>
-
-              <span
-                className={`report-status ${report.status
-                  .toLowerCase()
-                  .replace(" ", "-")}`}
-              >
-                {report.status}
-              </span>
-
-              <span className="time">
-                {report.time}
-              </span>
-
-            </div>
-
-          ))}
-
+            ))
+          )}
         </div>
-
       </section>
 
       {/* AWS ARCHITECTURE */}
       <section className="aws-section">
-
         <div className="section-heading center">
-
           <span className="section-tag">
             CLOUD INFRASTRUCTURE
           </span>
@@ -706,11 +683,9 @@ function App() {
             Built with scalable AWS services for reliable
             coastal hazard monitoring.
           </p>
-
         </div>
 
         <div className="aws-services">
-
           <div>
             <strong>⚡</strong>
             <span>Amplify</span>
@@ -740,14 +715,11 @@ function App() {
             <strong>📍</strong>
             <span>Location</span>
           </div>
-
         </div>
-
       </section>
 
       {/* FOOTER */}
       <footer>
-
         <div className="footer-logo">
           🌊 WAVE WATCH
         </div>
@@ -759,22 +731,18 @@ function App() {
         <span>
           Built with AWS ☁️
         </span>
-
       </footer>
 
       {/* REPORT MODAL */}
       {showModal && (
-
         <div
           className="modal-overlay"
           onClick={() => setShowModal(false)}
         >
-
           <div
             className="modal"
             onClick={(e) => e.stopPropagation()}
           >
-
             <button
               className="close-button"
               onClick={() => setShowModal(false)}
@@ -795,7 +763,6 @@ function App() {
               reporting what you observe.
             </p>
 
-            {/* HAZARD TYPE */}
             <label>
               Hazard Type
             </label>
@@ -813,7 +780,6 @@ function App() {
               <option>Other</option>
             </select>
 
-            {/* LOCATION */}
             <label>
               Location
             </label>
@@ -827,7 +793,6 @@ function App() {
               }
             />
 
-            {/* DESCRIPTION */}
             <label>
               Description
             </label>
@@ -841,7 +806,6 @@ function App() {
               }
             ></textarea>
 
-            {/* SUBMIT */}
             <button
               className="primary-button submit"
               onClick={submitReport}
@@ -851,13 +815,9 @@ function App() {
                 ? "Submitting..."
                 : "Submit Report"}
             </button>
-
           </div>
-
         </div>
-
       )}
-
     </div>
   );
 }
