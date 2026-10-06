@@ -14,12 +14,12 @@ type BackendReport = {
   reportId: string;
   hazardType: string;
   description: string;
+  location?: string;
   latitude: number;
   longitude: number;
   timestamp: string;
-  severity: "HIGH" | "MEDIUM" | "LOW" | string;
-  confidence: number;
-  status: "PENDING" | "ACTIVE" | "RESOLVED" | "UNDER_REVIEW" | string;
+  severity: "HIGH" | "MEDIUM" | "LOW";
+  status: string;
 };
 
 const sampleReports: Report[] = [
@@ -63,21 +63,28 @@ function App() {
 
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<any>(null);
-  const mapLoadedRef = useRef(false);
-  const dynamicMarkersRef = useRef<any[]>([]);
+  const markersRef = useRef<any[]>([]);
 
-  const [backendReports, setBackendReports] = useState<BackendReport[]>([]);
-  const [isLoadingReports, setIsLoadingReports] = useState(false);
-  const [isMapReady, setIsMapReady] = useState(false);
+  const LOCATION_API_KEY =
+    import.meta.env.VITE_LOCATION_API_KEY as string;
 
-  const LOCATION_API_KEY = import.meta.env.VITE_LOCATION_API_KEY as string;
   const AWS_REGION = "ap-southeast-2";
   const MAP_STYLE = "Standard";
 
-  const API_URL =
-    "https://cw6ehoudu9.execute-api.ap-southeast-2.amazonaws.com/reports";
+  // Report form states
+  const [hazardType, setHazardType] = useState("High Waves");
+  const [location, setLocation] = useState("");
+  const [description, setDescription] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Initialize Amazon Location Service map
+  // Backend reports
+  const [backendReports, setBackendReports] = useState<BackendReport[]>([]);
+  const [mapReady, setMapReady] = useState(false);
+
+  // =========================================================
+  // INITIALIZE AMAZON LOCATION MAP
+  // =========================================================
+
   useEffect(() => {
     const maplibregl = (window as any).maplibregl;
 
@@ -87,150 +94,44 @@ function App() {
 
     const styleUrl =
       `https://maps.geo.${AWS_REGION}.amazonaws.com/v2/styles/` +
-      `${MAP_STYLE}/descriptor?key=${encodeURIComponent(LOCATION_API_KEY)}`;
+      `${MAP_STYLE}/descriptor?key=${encodeURIComponent(
+        LOCATION_API_KEY
+      )}`;
 
     const map = new maplibregl.Map({
       container: mapContainerRef.current,
       style: styleUrl,
-      center: [80.2707, 13.0827],
-      zoom: 10,
+
+      // INDIA-WIDE INITIAL VIEW
+      center: [78.9629, 20.5937],
+      zoom: 4.5,
     });
 
-    map.addControl(new maplibregl.NavigationControl(), "top-right");
+    map.addControl(
+      new maplibregl.NavigationControl(),
+      "top-right"
+    );
 
     map.on("load", () => {
-      const hazards = [
-        {
-          name: "Marina Beach",
-          coordinates: [80.282, 13.049],
-          severity: "High",
-        },
-        {
-          name: "Besant Nagar",
-          coordinates: [80.267, 12.999],
-          severity: "High",
-        },
-        {
-          name: "Mahabalipuram",
-          coordinates: [80.192, 12.626],
-          severity: "Medium",
-        },
-      ];
-
-      hazards.forEach((hazard) => {
-        const color =
-          hazard.severity === "High"
-            ? "#ef4444"
-            : hazard.severity === "Medium"
-              ? "#f59e0b"
-              : "#22c55e";
-
-        new maplibregl.Marker({ color })
-          .setLngLat(hazard.coordinates)
-          .setPopup(
-            new maplibregl.Popup({ offset: 25 }).setHTML(
-              `<strong>${hazard.name}</strong><br/>Severity: ${hazard.severity}`
-            )
-          )
-          .addTo(map);
-      });
-
-      mapLoadedRef.current = true;
-      setIsMapReady(true);
+      setMapReady(true);
     });
 
     mapRef.current = map;
 
     return () => {
+      markersRef.current.forEach((marker) => marker.remove());
+      markersRef.current = [];
+
       map.remove();
       mapRef.current = null;
-      mapLoadedRef.current = false;
-      dynamicMarkersRef.current = [];
-      setIsMapReady(false);
+      setMapReady(false);
     };
   }, [LOCATION_API_KEY]);
 
-  // Fetch reports from DynamoDB through API Gateway
-  const fetchReports = async () => {
-    setIsLoadingReports(true);
+  // =========================================================
+  // RESIZE MAP WHEN EXPANDED
+  // =========================================================
 
-    try {
-      const response = await fetch(API_URL);
-
-      if (!response.ok) {
-        throw new Error("Failed to fetch reports");
-      }
-
-      const data = await response.json();
-
-      const reports = Array.isArray(data.reports)
-        ? data.reports
-        : [];
-
-      setBackendReports(reports);
-    } catch (error) {
-      console.error("Error fetching reports:", error);
-    } finally {
-      setIsLoadingReports(false);
-    }
-  };
-
-  // Load reports when page opens
-  useEffect(() => {
-    fetchReports();
-  }, []);
-
-  // Add real reports as map markers
-  useEffect(() => {
-    const maplibregl = (window as any).maplibregl;
-
-    if (
-      !mapRef.current ||
-      !isMapReady ||
-      !mapLoadedRef.current ||
-      !maplibregl
-    ) {
-      return;
-    }
-
-    // Remove old dynamic markers
-    dynamicMarkersRef.current.forEach((marker) => marker.remove());
-    dynamicMarkersRef.current = [];
-
-    backendReports.forEach((report) => {
-      if (
-        typeof report.latitude !== "number" ||
-        typeof report.longitude !== "number"
-      ) {
-        return;
-      }
-
-      const severity = String(report.severity).toUpperCase();
-
-      const color =
-        severity === "HIGH"
-          ? "#ef4444"
-          : severity === "LOW"
-            ? "#22c55e"
-            : "#f59e0b";
-
-      const marker = new maplibregl.Marker({ color })
-        .setLngLat([report.longitude, report.latitude])
-        .setPopup(
-          new maplibregl.Popup({ offset: 25 }).setHTML(
-            `<strong>${report.hazardType}</strong>` +
-              `<br/>Severity: ${severity}` +
-              `<br/>${report.description}` +
-              `<br/><small>Status: ${report.status}</small>`
-          )
-        )
-        .addTo(mapRef.current);
-
-      dynamicMarkersRef.current.push(marker);
-    });
-  }, [backendReports, isMapReady]);
-
-  // Resize map when expanded
   useEffect(() => {
     if (!mapRef.current) return;
 
@@ -241,6 +142,85 @@ function App() {
     return () => cancelAnimationFrame(frame);
   }, [isMapExpanded]);
 
+  // =========================================================
+  // DISPLAY ALL BACKEND HAZARDS ON MAP
+  // =========================================================
+
+  useEffect(() => {
+    if (!mapRef.current || !mapReady) return;
+
+    const maplibregl = (window as any).maplibregl;
+
+    if (!maplibregl) return;
+
+    // Remove previous markers
+    markersRef.current.forEach((marker) => marker.remove());
+    markersRef.current = [];
+
+    // Add backend reports
+    backendReports.forEach((report) => {
+      const color =
+        report.severity === "HIGH"
+          ? "#ef4444"
+          : report.severity === "MEDIUM"
+            ? "#f59e0b"
+            : "#22c55e";
+
+      const marker = new maplibregl.Marker({ color })
+        .setLngLat([
+          Number(report.longitude),
+          Number(report.latitude),
+        ])
+        .setPopup(
+          new maplibregl.Popup({ offset: 25 }).setHTML(`
+            <strong>${report.hazardType}</strong>
+            <br/>
+            📍 ${report.location || "Reported location"}
+            <br/>
+            Severity: ${report.severity}
+            <br/>
+            ${report.description}
+          `)
+        )
+        .addTo(mapRef.current);
+
+      markersRef.current.push(marker);
+    });
+  }, [backendReports, mapReady]);
+
+  // =========================================================
+  // FETCH REPORTS FROM API
+  // =========================================================
+
+  const fetchReports = async () => {
+    try {
+      const response = await fetch(
+        "https://cw6ehoudu9.execute-api.ap-southeast-2.amazonaws.com/reports"
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.error || "Failed to fetch reports"
+        );
+      }
+
+      setBackendReports(data.reports || []);
+    } catch (error) {
+      console.error("Error fetching reports:", error);
+    }
+  };
+
+  // Load reports when application starts
+  useEffect(() => {
+    fetchReports();
+  }, []);
+
+  // =========================================================
+  // SCROLL TO MAP
+  // =========================================================
+
   const scrollToMap = () => {
     document.getElementById("hazard-map")?.scrollIntoView({
       behavior: "smooth",
@@ -248,95 +228,208 @@ function App() {
     });
   };
 
-  // Report form states
-  const [hazardType, setHazardType] = useState("High Waves");
-  const [location, setLocation] = useState("");
-  const [description, setDescription] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  // =========================================================
+  // AMAZON LOCATION SEARCH
+  // =========================================================
 
-  // Submit report
+  const searchLocation = async (searchText: string) => {
+    const url =
+      `https://places.geo.${AWS_REGION}.amazonaws.com/v2/search-text` +
+      `?key=${encodeURIComponent(LOCATION_API_KEY)}`;
+
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        QueryText: searchText,
+        MaxResults: 1,
+
+        // ONLY SEARCH WITHIN INDIA
+        Filter: {
+          IncludeCountries: ["IND"],
+        },
+
+        IntendedUse: "SingleUse",
+      }),
+    });
+
+    const data = await response.json();
+
+    console.log("Amazon Location Search Response:", data);
+
+    if (!response.ok) {
+      throw new Error(
+        data.message ||
+          data.error ||
+          "Location search failed"
+      );
+    }
+
+    if (
+      !data.ResultItems ||
+      data.ResultItems.length === 0
+    ) {
+      throw new Error(
+        `Could not find "${searchText}" in India. Please enter a valid Indian location.`
+      );
+    }
+
+    const result = data.ResultItems[0];
+
+    if (
+      !result.Position ||
+      result.Position.length !== 2
+    ) {
+      throw new Error(
+        "Location coordinates were not found."
+      );
+    }
+
+    return {
+      locationName:
+        result.Title || searchText,
+
+      // AWS returns [longitude, latitude]
+      longitude: Number(result.Position[0]),
+      latitude: Number(result.Position[1]),
+    };
+  };
+
+  // =========================================================
+  // SUBMIT HAZARD REPORT
+  // =========================================================
+
   const submitReport = async () => {
     if (!location.trim() || !description.trim()) {
-      alert("Please enter the location and description.");
+      alert(
+        "Please enter the location and description."
+      );
+      return;
+    }
+
+    if (!LOCATION_API_KEY) {
+      alert(
+        "Amazon Location API key is not configured."
+      );
       return;
     }
 
     setIsSubmitting(true);
 
     try {
-      const response = await fetch(API_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          hazardType: hazardType,
-          description: description,
-          latitude: 13.0827,
-          longitude: 80.2707,
-        }),
-      });
+      // -----------------------------------------------------
+      // STEP 1: FIND LOCATION USING AMAZON LOCATION
+      // -----------------------------------------------------
+
+      const place = await searchLocation(
+        location.trim()
+      );
+
+      console.log("Found location:", place);
+
+      // -----------------------------------------------------
+      // STEP 2: MOVE MAP TO SEARCHED LOCATION
+      // -----------------------------------------------------
+
+      if (mapRef.current) {
+        mapRef.current.flyTo({
+          center: [
+            place.longitude,
+            place.latitude,
+          ],
+          zoom: 11,
+          essential: true,
+        });
+      }
+
+      // -----------------------------------------------------
+      // STEP 3: SEND REAL COORDINATES TO API GATEWAY
+      // -----------------------------------------------------
+
+      const response = await fetch(
+        "https://cw6ehoudu9.execute-api.ap-southeast-2.amazonaws.com/reports",
+        {
+          method: "POST",
+
+          headers: {
+            "Content-Type": "application/json",
+          },
+
+          body: JSON.stringify({
+            hazardType: hazardType,
+            description: description,
+
+            // REAL LOCATION NAME
+            location: place.locationName,
+
+            // REAL COORDINATES
+            latitude: place.latitude,
+            longitude: place.longitude,
+          }),
+        }
+      );
 
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "Failed to submit report");
+        throw new Error(
+          data.error ||
+            "Failed to submit report"
+        );
       }
 
-      alert("🚨 Hazard report submitted successfully!");
+      console.log("AWS Response:", data);
 
+      // -----------------------------------------------------
+      // STEP 4: REFRESH REPORTS
+      // -----------------------------------------------------
+
+      await fetchReports();
+
+      // -----------------------------------------------------
+      // STEP 5: SUCCESS
+      // -----------------------------------------------------
+
+      alert(
+        `🚨 Hazard reported successfully at ${place.locationName}!`
+      );
+
+      // Clear form
       setHazardType("High Waves");
       setLocation("");
       setDescription("");
 
-      // Fetch latest reports immediately
-      await fetchReports();
-
+      // Close modal
       setShowModal(false);
-
-      console.log("AWS Response:", data);
     } catch (error) {
-      console.error("Error submitting report:", error);
-      alert("Failed to submit report. Please try again.");
+      console.error(
+        "Error submitting report:",
+        error
+      );
+
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Failed to submit report. Please try again."
+      );
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const displayReports: Report[] =
-    backendReports.length > 0
-      ? backendReports
-          .slice()
-          .sort(
-            (a, b) =>
-              new Date(b.timestamp).getTime() -
-              new Date(a.timestamp).getTime()
-          )
-          .map((report, index) => ({
-            id: index + 1,
-            title: report.hazardType,
-            location: `${Number(report.latitude).toFixed(4)}, ${Number(
-              report.longitude
-            ).toFixed(4)}`,
-            severity:
-              String(report.severity).toUpperCase() === "HIGH"
-                ? "High"
-                : String(report.severity).toUpperCase() === "LOW"
-                  ? "Low"
-                  : "Medium",
-            status:
-              String(report.status).toUpperCase() === "RESOLVED"
-                ? "Resolved"
-                : String(report.status).toUpperCase() === "ACTIVE"
-                  ? "Active"
-                  : "Under Review",
-            time: new Date(report.timestamp).toLocaleString(),
-          }))
-      : sampleReports;
+  // =========================================================
+  // UI
+  // =========================================================
 
   return (
     <div className="app">
-      {/* NAVBAR */}
+
+      {/* =====================================================
+          NAVBAR
+      ===================================================== */}
+
       <nav className="navbar">
         <div className="logo">
           <span className="logo-icon">🌊</span>
@@ -353,9 +446,13 @@ function App() {
         </div>
       </nav>
 
-      {/* HERO */}
+      {/* =====================================================
+          HERO
+      ===================================================== */}
+
       <section className="hero">
         <div className="hero-content">
+
           <div className="hero-badge">
             🌊 REAL-TIME COASTAL MONITORING
           </div>
@@ -373,6 +470,7 @@ function App() {
           </p>
 
           <div className="hero-buttons">
+
             <button
               className="primary-button"
               onClick={() => setShowModal(true)}
@@ -386,30 +484,49 @@ function App() {
             >
               🗺️ View Live Map
             </button>
+
           </div>
         </div>
 
         <div className="hero-visual">
+
           <div className="ocean-circle">
             <div className="wave wave-one"></div>
             <div className="wave wave-two"></div>
             <div className="wave wave-three"></div>
 
-            <div className="location-pin">📍</div>
+            <div className="location-pin">
+              📍
+            </div>
           </div>
 
           <div className="floating-card">
-            <span className="small-label">ACTIVE ALERT</span>
-            <strong>High Wave Activity</strong>
-            <span>📍 Marina Beach</span>
+            <span className="small-label">
+              ACTIVE ALERT
+            </span>
+
+            <strong>
+              High Wave Activity
+            </strong>
+
+            <span>
+              📍 Marina Beach
+            </span>
           </div>
+
         </div>
       </section>
 
-      {/* STATISTICS */}
+      {/* =====================================================
+          STATISTICS
+      ===================================================== */}
+
       <section className="stats">
+
         <div className="stat-card">
-          <div className="stat-icon red">🚨</div>
+          <div className="stat-icon red">
+            🚨
+          </div>
 
           <div>
             <span>Active Hazards</span>
@@ -418,7 +535,9 @@ function App() {
         </div>
 
         <div className="stat-card">
-          <div className="stat-icon orange">⚠️</div>
+          <div className="stat-icon orange">
+            ⚠️
+          </div>
 
           <div>
             <span>Under Review</span>
@@ -427,7 +546,9 @@ function App() {
         </div>
 
         <div className="stat-card">
-          <div className="stat-icon green">✓</div>
+          <div className="stat-icon green">
+            ✓
+          </div>
 
           <div>
             <span>Resolved</span>
@@ -436,24 +557,34 @@ function App() {
         </div>
 
         <div className="stat-card">
-          <div className="stat-icon blue">👥</div>
+          <div className="stat-icon blue">
+            👥
+          </div>
 
           <div>
             <span>Citizen Reports</span>
             <strong>128</strong>
           </div>
         </div>
+
       </section>
 
-      {/* MONITORING SECTION */}
+      {/* =====================================================
+          MONITORING
+      ===================================================== */}
+
       <section className="monitoring">
+
         <div className="section-heading">
+
           <div>
             <span className="section-tag">
               LIVE MONITORING
             </span>
 
-            <h2>Coastal Hazard Overview</h2>
+            <h2>
+              Coastal Hazard Overview
+            </h2>
 
             <p>
               Monitor reported hazards across coastal regions.
@@ -464,35 +595,53 @@ function App() {
             <span></span>
             LIVE
           </div>
+
         </div>
 
         <div className="monitor-grid">
-          {/* MAP */}
+
+          {/* =================================================
+              MAP
+          ================================================= */}
+
           <div
             id="hazard-map"
             className={`map-card ${
-              isMapExpanded ? "expanded" : ""
+              isMapExpanded
+                ? "expanded"
+                : ""
             }`}
           >
+
             <div className="map-header">
+
               <div>
-                <h3>Hazard Map</h3>
-                <span>Real-time coastal activity</span>
+                <h3>
+                  Hazard Map
+                </h3>
+
+                <span>
+                  India-wide real-time coastal activity
+                </span>
               </div>
 
               <button
                 className="map-button"
                 onClick={() =>
-                  setIsMapExpanded((current) => !current)
+                  setIsMapExpanded(
+                    (current) => !current
+                  )
                 }
               >
                 {isMapExpanded
                   ? "Close Map ✕"
                   : "Full Map ↗"}
               </button>
+
             </div>
 
             <div className="real-map">
+
               <div
                 ref={mapContainerRef}
                 style={{
@@ -509,7 +658,8 @@ function App() {
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    background: "rgba(6, 17, 31, 0.88)",
+                    background:
+                      "rgba(6, 17, 31, 0.88)",
                     color: "#e2e8f0",
                     padding: "20px",
                     textAlign: "center",
@@ -519,9 +669,11 @@ function App() {
                   Amazon Location API key is not configured.
                 </div>
               )}
+
             </div>
 
             <div className="map-legend">
+
               <span>
                 <i className="legend-red"></i>
                 High
@@ -536,65 +688,123 @@ function App() {
                 <i className="legend-green"></i>
                 Low
               </span>
+
             </div>
+
           </div>
 
-          {/* ALERT PANEL */}
+          {/* =================================================
+              ALERT PANEL
+          ================================================= */}
+
           <div className="alert-card">
+
             <div className="alert-header">
+
               <div>
                 <span className="section-tag">
                   URGENT
                 </span>
 
-                <h3>Current Alerts</h3>
+                <h3>
+                  Current Alerts
+                </h3>
               </div>
 
-              <span className="alert-count">3</span>
+              <span className="alert-count">
+                3
+              </span>
+
             </div>
 
             <div className="alert-item high">
-              <div className="alert-icon">🌊</div>
+
+              <div className="alert-icon">
+                🌊
+              </div>
 
               <div>
-                <strong>High Wave Activity</strong>
-                <span>Marina Beach</span>
-                <small>8 minutes ago</small>
+                <strong>
+                  High Wave Activity
+                </strong>
+
+                <span>
+                  Marina Beach
+                </span>
+
+                <small>
+                  8 minutes ago
+                </small>
               </div>
+
             </div>
 
             <div className="alert-item medium">
-              <div className="alert-icon">🌧️</div>
+
+              <div className="alert-icon">
+                🌧️
+              </div>
 
               <div>
-                <strong>Coastal Flooding</strong>
-                <span>Besant Nagar</span>
-                <small>24 minutes ago</small>
+                <strong>
+                  Coastal Flooding
+                </strong>
+
+                <span>
+                  Besant Nagar
+                </span>
+
+                <small>
+                  24 minutes ago
+                </small>
               </div>
+
             </div>
 
             <div className="alert-item low">
-              <div className="alert-icon">💨</div>
+
+              <div className="alert-icon">
+                💨
+              </div>
 
               <div>
-                <strong>Strong Winds</strong>
-                <span>Kovalam</span>
-                <small>41 minutes ago</small>
+                <strong>
+                  Strong Winds
+                </strong>
+
+                <span>
+                  Kovalam
+                </span>
+
+                <small>
+                  41 minutes ago
+                </small>
               </div>
+
             </div>
+
           </div>
+
         </div>
+
       </section>
 
-      {/* RECENT REPORTS */}
+      {/* =====================================================
+          RECENT REPORTS
+      ===================================================== */}
+
       <section className="reports">
+
         <div className="section-heading">
+
           <div>
             <span className="section-tag">
               CITIZEN REPORTS
             </span>
 
-            <h2>Recent Hazard Reports</h2>
+            <h2>
+              Recent Hazard Reports
+            </h2>
 
             <p>
               Latest observations submitted by the community.
@@ -603,13 +813,17 @@ function App() {
 
           <button
             className="primary-button small"
-            onClick={() => setShowModal(true)}
+            onClick={() =>
+              setShowModal(true)
+            }
           >
             + New Report
           </button>
+
         </div>
 
         <div className="reports-table">
+
           <div className="table-header">
             <span>HAZARD</span>
             <span>LOCATION</span>
@@ -618,29 +832,23 @@ function App() {
             <span>REPORTED</span>
           </div>
 
-          {isLoadingReports ? (
-            <div
-              className="report-row"
-              style={{
-                display: "flex",
-                justifyContent: "center",
-                padding: "25px",
-              }}
-            >
-              Loading reports...
-            </div>
-          ) : (
-            displayReports.map((report) => (
+          {sampleReports.map(
+            (report) => (
               <div
                 className="report-row"
                 key={report.id}
               >
+
                 <div className="hazard-name">
+
                   <div className="report-icon">
                     ⚠️
                   </div>
 
-                  <strong>{report.title}</strong>
+                  <strong>
+                    {report.title}
+                  </strong>
+
                 </div>
 
                 <span className="location">
@@ -664,28 +872,40 @@ function App() {
                 <span className="time">
                   {report.time}
                 </span>
+
               </div>
-            ))
+            )
           )}
+
         </div>
+
       </section>
 
-      {/* AWS ARCHITECTURE */}
+      {/* =====================================================
+          AWS ARCHITECTURE
+      ===================================================== */}
+
       <section className="aws-section">
+
         <div className="section-heading center">
+
           <span className="section-tag">
             CLOUD INFRASTRUCTURE
           </span>
 
-          <h2>Powered by AWS</h2>
+          <h2>
+            Powered by AWS
+          </h2>
 
           <p>
             Built with scalable AWS services for reliable
             coastal hazard monitoring.
           </p>
+
         </div>
 
         <div className="aws-services">
+
           <div>
             <strong>⚡</strong>
             <span>Amplify</span>
@@ -715,11 +935,17 @@ function App() {
             <strong>📍</strong>
             <span>Location</span>
           </div>
+
         </div>
+
       </section>
 
-      {/* FOOTER */}
+      {/* =====================================================
+          FOOTER
+      ===================================================== */}
+
       <footer>
+
         <div className="footer-logo">
           🌊 WAVE WATCH
         </div>
@@ -731,21 +957,34 @@ function App() {
         <span>
           Built with AWS ☁️
         </span>
+
       </footer>
 
-      {/* REPORT MODAL */}
+      {/* =====================================================
+          REPORT MODAL
+      ===================================================== */}
+
       {showModal && (
+
         <div
           className="modal-overlay"
-          onClick={() => setShowModal(false)}
+          onClick={() =>
+            setShowModal(false)
+          }
         >
+
           <div
             className="modal"
-            onClick={(e) => e.stopPropagation()}
+            onClick={(e) =>
+              e.stopPropagation()
+            }
           >
+
             <button
               className="close-button"
-              onClick={() => setShowModal(false)}
+              onClick={() =>
+                setShowModal(false)
+              }
             >
               ×
             </button>
@@ -763,6 +1002,8 @@ function App() {
               reporting what you observe.
             </p>
 
+            {/* HAZARD TYPE */}
+
             <label>
               Hazard Type
             </label>
@@ -770,15 +1011,33 @@ function App() {
             <select
               value={hazardType}
               onChange={(e) =>
-                setHazardType(e.target.value)
+                setHazardType(
+                  e.target.value
+                )
               }
             >
-              <option>High Waves</option>
-              <option>Coastal Flooding</option>
-              <option>Beach Erosion</option>
-              <option>Strong Winds</option>
-              <option>Other</option>
+              <option>
+                High Waves
+              </option>
+
+              <option>
+                Coastal Flooding
+              </option>
+
+              <option>
+                Beach Erosion
+              </option>
+
+              <option>
+                Strong Winds
+              </option>
+
+              <option>
+                Other
+              </option>
             </select>
+
+            {/* LOCATION */}
 
             <label>
               Location
@@ -786,12 +1045,16 @@ function App() {
 
             <input
               type="text"
-              placeholder="Enter coastal location"
+              placeholder="Enter Indian location e.g. Dindigul"
               value={location}
               onChange={(e) =>
-                setLocation(e.target.value)
+                setLocation(
+                  e.target.value
+                )
               }
             />
+
+            {/* DESCRIPTION */}
 
             <label>
               Description
@@ -802,9 +1065,13 @@ function App() {
               rows={4}
               value={description}
               onChange={(e) =>
-                setDescription(e.target.value)
+                setDescription(
+                  e.target.value
+                )
               }
             ></textarea>
+
+            {/* SUBMIT */}
 
             <button
               className="primary-button submit"
@@ -812,12 +1079,16 @@ function App() {
               disabled={isSubmitting}
             >
               {isSubmitting
-                ? "Submitting..."
+                ? "Finding location & submitting..."
                 : "Submit Report"}
             </button>
+
           </div>
+
         </div>
+
       )}
+
     </div>
   );
 }
