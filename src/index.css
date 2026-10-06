@@ -1,53 +1,4 @@
-* {
-  box-sizing: border-box;
-}
-
-body {
-  margin: 0;
-  min-width: 320px;
-  min-height: 100vh;
-  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
-    sans-serif;
-  background: #eef6f8;
-  color: #102a43;
-}
-
-button,
-input,
-textarea,
-select {
-  font: inherit;
-}
-
-button {
-  cursor: pointer;
-}
-
-a {
-  text-decoration: none;
-}
-ul {
-  padding-inline-start: 0;
-  margin-block-start: 0;
-  margin-block-end: 0;
-  list-style-type: none;
-  display: flex;
-  flex-direction: column;
-  margin: 8px 0;
-  border: 1px solid black;
-  gap: 1px;
-  background-color: black;
-  border-radius: 8px;
-  overflow: auto;
-}
-
-li {
-  background-color: white;
-  padding: 8px;
-}
-
-li:hover {
-  background: #dadbf:root {
+:root {
   font-family:
     Inter,
     system-ui,
@@ -61,6 +12,7 @@ li:hover {
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
+
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -68,13 +20,16 @@ li:hover {
 html {
   margin: 0;
   padding: 0;
+
   min-width: 320px;
   min-height: 100%;
+
   background: #06111f;
 }
 
 body {
   margin: 0;
+
   min-width: 320px;
   min-height: 100vh;
 }
@@ -94,10 +49,4 @@ a:focus-visible {
 
 a {
   color: inherit;
-}9;
-}
-
-a {
-  font-weight: 800;
-  text-decoration: none;
 }
