@@ -20,6 +20,7 @@ function App() {
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<any>(null);
   const markersRef = useRef<any[]>([]);
+  const locationPreviewMarkerRef = useRef<any>(null);
 
   const LOCATION_API_KEY =
     import.meta.env.VITE_LOCATION_API_KEY as string;
@@ -34,6 +35,13 @@ function App() {
   const [hazardType, setHazardType] = useState("High Waves");
   const [customHazardType, setCustomHazardType] = useState("");
   const [location, setLocation] = useState("");
+  const [resolvedPlace, setResolvedPlace] = useState<{
+    locationName: string;
+    addressLabel: string;
+    latitude: number;
+    longitude: number;
+  } | null>(null);
+  const [isResolvingLocation, setIsResolvingLocation] = useState(false);
   const [description, setDescription] = useState("");
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -85,6 +93,11 @@ function App() {
     return () => {
       markersRef.current.forEach((marker) => marker.remove());
       markersRef.current = [];
+
+      if (locationPreviewMarkerRef.current) {
+        locationPreviewMarkerRef.current.remove();
+        locationPreviewMarkerRef.current = null;
+      }
 
       map.remove();
       mapRef.current = null;
@@ -268,14 +281,88 @@ function App() {
       );
     }
 
+    const addressLabel =
+      result.Address?.Label ||
+      result.Address?.Freeform ||
+      result.Title ||
+      searchText;
+
     return {
-      locationName:
-        result.Title || searchText,
+      locationName: result.Title || searchText,
+      addressLabel,
 
       // AWS returns [longitude, latitude]
       longitude: Number(result.Position[0]),
       latitude: Number(result.Position[1]),
     };
+  };
+
+  // =========================================================
+  // RESOLVE LOCATION PREVIEW
+  // =========================================================
+
+  const resolveLocation = async () => {
+    if (!location.trim()) {
+      alert("Please enter an address or location first.");
+      return;
+    }
+
+    if (!LOCATION_API_KEY) {
+      alert("Amazon Location API key is not configured.");
+      return;
+    }
+
+    setIsResolvingLocation(true);
+
+    try {
+      const place = await searchLocation(location.trim());
+
+      setResolvedPlace({
+        locationName: place.locationName,
+        addressLabel: place.addressLabel,
+        latitude: place.latitude,
+        longitude: place.longitude,
+      });
+
+      if (mapRef.current) {
+        mapRef.current.flyTo({
+          center: [place.longitude, place.latitude],
+          zoom: 13,
+          essential: true,
+        });
+
+        const maplibregl = (window as any).maplibregl;
+
+        if (maplibregl) {
+          if (locationPreviewMarkerRef.current) {
+            locationPreviewMarkerRef.current.remove();
+          }
+
+          locationPreviewMarkerRef.current = new maplibregl.Marker({
+            color: "#38bdf8",
+          })
+            .setLngLat([place.longitude, place.latitude])
+            .setPopup(
+              new maplibregl.Popup({ offset: 25 }).setHTML(`
+                <strong>Selected Location</strong>
+                <br/>
+                ${place.addressLabel}
+              `)
+            )
+            .addTo(mapRef.current);
+        }
+      }
+    } catch (error) {
+      console.error("Location resolution error:", error);
+      setResolvedPlace(null);
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Could not resolve this location."
+      );
+    } finally {
+      setIsResolvingLocation(false);
+    }
   };
 
   // =========================================================
@@ -302,26 +389,20 @@ function App() {
 
     if (!urlResponse.ok) {
       throw new Error(
-        urlData.error ||
-          "Could not generate photo upload URL."
+        urlData.error || "Could not generate photo upload URL."
       );
     }
 
-    const uploadResponse = await fetch(
-      urlData.uploadUrl,
-      {
-        method: "PUT",
-        headers: {
-          "Content-Type": file.type || "image/jpeg",
-        },
-        body: file,
-      }
-    );
+    const uploadResponse = await fetch(urlData.uploadUrl, {
+      method: "PUT",
+      headers: {
+        "Content-Type": file.type || "image/jpeg",
+      },
+      body: file,
+    });
 
     if (!uploadResponse.ok) {
-      throw new Error(
-        "Photo upload failed. Please try again."
-      );
+      throw new Error("Photo upload failed. Please try again.");
     }
 
     return urlData.photoKey as string;
@@ -332,7 +413,6 @@ function App() {
   // =========================================================
 
   const submitReport = async () => {
-    // Basic validation
     if (!location.trim() || !description.trim()) {
       alert(
         "Please enter the location and description."
@@ -340,11 +420,7 @@ function App() {
       return;
     }
 
-    // Custom hazard validation
-    if (
-      hazardType === "Other" &&
-      !customHazardType.trim()
-    ) {
+    if (hazardType === "Other" && !customHazardType.trim()) {
       alert("Please specify the hazard type.");
       return;
     }
@@ -360,12 +436,11 @@ function App() {
 
     try {
       // -----------------------------------------------------
-      // STEP 1: FIND LOCATION USING AMAZON LOCATION
+      // STEP 1: USE RESOLVED LOCATION OR FIND IT
       // -----------------------------------------------------
 
-      const place = await searchLocation(
-        location.trim()
-      );
+      const place = resolvedPlace ||
+        (await searchLocation(location.trim()));
 
       console.log("Found location:", place);
 
@@ -392,31 +467,18 @@ function App() {
 
       if (photoFile) {
         if (!photoFile.type.startsWith("image/")) {
-          throw new Error(
-            "Please select an image file."
-          );
+          throw new Error("Please select an image file.");
         }
 
         if (photoFile.size > 10 * 1024 * 1024) {
-          throw new Error(
-            "Photo must be smaller than 10 MB."
-          );
+          throw new Error("Photo must be smaller than 10 MB.");
         }
 
         photoKey = await uploadPhotoToS3(photoFile);
       }
 
       // -----------------------------------------------------
-      // STEP 4: DETERMINE FINAL HAZARD TYPE
-      // -----------------------------------------------------
-
-      const finalHazardType =
-        hazardType === "Other"
-          ? customHazardType.trim()
-          : hazardType;
-
-      // -----------------------------------------------------
-      // STEP 5: SEND REAL COORDINATES + PHOTO KEY TO API
+      // STEP 4: SEND REAL COORDINATES + PHOTO KEY TO API
       // -----------------------------------------------------
 
       const response = await fetch(
@@ -429,8 +491,10 @@ function App() {
           },
 
           body: JSON.stringify({
-            hazardType: finalHazardType,
-
+            hazardType:
+              hazardType === "Other"
+                ? customHazardType.trim()
+                : hazardType,
             description: description,
 
             // Real location name
@@ -458,29 +522,33 @@ function App() {
       console.log("AWS Response:", data);
 
       // -----------------------------------------------------
-      // STEP 6: REFRESH REPORTS
+      // STEP 5: REFRESH REPORTS
       // -----------------------------------------------------
 
       await fetchReports();
 
       // -----------------------------------------------------
-      // STEP 7: SUCCESS
+      // STEP 6: SUCCESS
       // -----------------------------------------------------
 
       alert(
-        `🚨 ${finalHazardType} reported successfully at ${place.locationName}!`
+        `🚨 Hazard reported successfully at ${place.locationName}!`
       );
 
       // Clear form
       setHazardType("High Waves");
       setCustomHazardType("");
       setLocation("");
+      setResolvedPlace(null);
+      if (locationPreviewMarkerRef.current) {
+        locationPreviewMarkerRef.current.remove();
+        locationPreviewMarkerRef.current = null;
+      }
       setDescription("");
       setPhotoFile(null);
 
       // Close modal
       setShowModal(false);
-
     } catch (error) {
       console.error(
         "Error submitting report:",
@@ -509,7 +577,6 @@ function App() {
       ===================================================== */}
 
       <nav className="navbar">
-
         <div className="logo">
 
           <span className="logo-icon">
@@ -518,7 +585,6 @@ function App() {
 
           <div>
             <h2>WAVE WATCH</h2>
-
             <span>
               Coastal Safety Platform
             </span>
@@ -530,7 +596,6 @@ function App() {
           <span className="live-dot"></span>
           System Live
         </div>
-
       </nav>
 
       {/* =====================================================
@@ -664,11 +729,9 @@ function App() {
 
           <div>
             <span>Citizen Reports</span>
-
             <strong>
               {backendReports.length}
             </strong>
-
           </div>
 
         </div>
@@ -971,74 +1034,74 @@ function App() {
 
             backendReports.map((report) => {
 
-              const severity =
-                report.severity === "HIGH"
-                  ? "High"
-                  : report.severity === "LOW"
-                    ? "Low"
-                    : "Medium";
+                const severity =
+                  report.severity === "HIGH"
+                    ? "High"
+                    : report.severity === "LOW"
+                      ? "Low"
+                      : "Medium";
 
-              const status =
-                report.status === "PENDING"
-                  ? "Under Review"
-                  : report.status === "RESOLVED"
-                    ? "Resolved"
-                    : "Active";
+                const status =
+                  report.status === "PENDING"
+                    ? "Under Review"
+                    : report.status === "RESOLVED"
+                      ? "Resolved"
+                      : "Active";
 
-              const reportedTime =
-                report.timestamp
-                  ? new Date(
-                      report.timestamp
-                    ).toLocaleString()
-                  : "Recently";
+                const reportedTime =
+                  report.timestamp
+                    ? new Date(
+                        report.timestamp
+                      ).toLocaleString()
+                    : "Recently";
 
-              return (
+                return (
 
-                <div
-                  className="report-row"
-                  key={report.reportId}
-                >
+                  <div
+                    className="report-row"
+                    key={report.reportId}
+                  >
 
-                  <div className="hazard-name">
+                    <div className="hazard-name">
 
-                    <div className="report-icon">
-                      ⚠️
+                      <div className="report-icon">
+                        ⚠️
+                      </div>
+
+                      <strong>
+                        {report.hazardType}
+                      </strong>
+
                     </div>
 
-                    <strong>
-                      {report.hazardType}
-                    </strong>
+                    <span className="location">
+                      📍{" "}
+                      {report.location ||
+                        "Reported location"}
+                    </span>
+
+                    <span
+                      className={`severity ${severity.toLowerCase()}`}
+                    >
+                      {severity}
+                    </span>
+
+                    <span
+                      className={`report-status ${status
+                        .toLowerCase()
+                        .replace(" ", "-")}`}
+                    >
+                      {status}
+                    </span>
+
+                    <span className="time">
+                      {reportedTime}
+                    </span>
 
                   </div>
 
-                  <span className="location">
-                    📍{" "}
-                    {report.location ||
-                      "Reported location"}
-                  </span>
-
-                  <span
-                    className={`severity ${severity.toLowerCase()}`}
-                  >
-                    {severity}
-                  </span>
-
-                  <span
-                    className={`report-status ${status
-                      .toLowerCase()
-                      .replace(" ", "-")}`}
-                  >
-                    {status}
-                  </span>
-
-                  <span className="time">
-                    {reportedTime}
-                  </span>
-
-                </div>
-
-              );
-            })
+                );
+              })
 
           )}
 
@@ -1167,9 +1230,7 @@ function App() {
               reporting what you observe.
             </p>
 
-            {/* =================================================
-                HAZARD TYPE
-            ================================================= */}
+            {/* HAZARD TYPE */}
 
             <label>
               Hazard Type
@@ -1179,10 +1240,7 @@ function App() {
               value={hazardType}
               onChange={(e) => {
                 const value = e.target.value;
-
                 setHazardType(value);
-
-                // Clear custom name when leaving Other
                 if (value !== "Other") {
                   setCustomHazardType("");
                 }
@@ -1211,22 +1269,10 @@ function App() {
 
             </select>
 
-            {/* =================================================
-                CUSTOM HAZARD TYPE
-            ================================================= */}
-
             {hazardType === "Other" && (
               <>
                 <label>
-                  Specify Hazard Type
-                  <span
-                    style={{
-                      color: "#ef4444",
-                      marginLeft: "4px",
-                    }}
-                  >
-                    *
-                  </span>
+                  Specify Hazard Type *
                 </label>
 
                 <input
@@ -1234,36 +1280,81 @@ function App() {
                   placeholder="e.g. Oil Spill, Tsunami, Marine Debris"
                   value={customHazardType}
                   onChange={(e) =>
-                    setCustomHazardType(
-                      e.target.value
-                    )
+                    setCustomHazardType(e.target.value)
                   }
                 />
               </>
             )}
 
-            {/* =================================================
-                LOCATION
-            ================================================= */}
+            {/* LOCATION */}
 
             <label>
-              Location
+              LOCATION / ADDRESS *
             </label>
 
-            <input
-              type="text"
-              placeholder="Enter Indian location e.g. Dindigul"
-              value={location}
-              onChange={(e) =>
-                setLocation(
-                  e.target.value
-                )
-              }
-            />
+            <div
+              style={{
+                display: "flex",
+                gap: "8px",
+                alignItems: "stretch",
+              }}
+            >
+              <input
+                type="text"
+                placeholder="e.g. Marina Beach, Chennai, Tamil Nadu"
+                value={location}
+                onChange={(e) => {
+                  setLocation(e.target.value);
+                  setResolvedPlace(null);
+                }}
+                style={{ flex: 1 }}
+              />
 
-            {/* =================================================
-                DESCRIPTION
-            ================================================= */}
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={resolveLocation}
+                disabled={isResolvingLocation}
+                style={{
+                  whiteSpace: "nowrap",
+                  padding: "0 14px",
+                }}
+              >
+                {isResolvingLocation
+                  ? "Resolving..."
+                  : "📍 Resolve"}
+              </button>
+            </div>
+
+            {resolvedPlace && (
+              <div
+                style={{
+                  marginTop: "10px",
+                  marginBottom: "16px",
+                  padding: "12px 14px",
+                  border: "1px solid rgba(56, 189, 248, 0.35)",
+                  borderRadius: "10px",
+                  background: "rgba(14, 165, 233, 0.08)",
+                  color: "#cbd5e1",
+                  fontSize: "13px",
+                  lineHeight: 1.5,
+                }}
+              >
+                <strong style={{ color: "#38bdf8" }}>
+                  ✓ Location Resolved
+                </strong>
+                <br />
+                <strong>{resolvedPlace.locationName}</strong>
+                <br />
+                {resolvedPlace.addressLabel}
+                <br />
+                <span style={{ opacity: 0.75 }}>
+                  Coordinates: {resolvedPlace.latitude.toFixed(5)}, {resolvedPlace.longitude.toFixed(5)}
+                </span>
+              </div>
+            )}
+
+            {/* DESCRIPTION */}
 
             <label>
               Description
@@ -1280,9 +1371,7 @@ function App() {
               }
             ></textarea>
 
-            {/* =================================================
-                PHOTO
-            ================================================= */}
+            {/* PHOTO */}
 
             <label>
               Photo Evidence{" "}
@@ -1314,9 +1403,7 @@ function App() {
               </div>
             )}
 
-            {/* =================================================
-                SUBMIT
-            ================================================= */}
+            {/* SUBMIT */}
 
             <button
               className="primary-button submit"
