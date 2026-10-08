@@ -11,6 +11,9 @@ type BackendReport = {
   timestamp: string;
   severity: "HIGH" | "MEDIUM" | "LOW";
   status: string;
+  photoKey?: string;
+  sentiment?: string;
+  sentimentScore?: number;
 };
 
 function App() {
@@ -28,7 +31,7 @@ function App() {
   const MAP_STYLE = "Standard";
 
   // =========================================================
-  // REPORT FORM STATES
+  // REPORT FORM
   // =========================================================
 
   const [hazardType, setHazardType] = useState("High Waves");
@@ -41,11 +44,13 @@ function App() {
   // BACKEND REPORTS
   // =========================================================
 
-  const [backendReports, setBackendReports] = useState<BackendReport[]>([]);
+  const [backendReports, setBackendReports] = useState<BackendReport[]>(
+    []
+  );
   const [mapReady, setMapReady] = useState(false);
 
   // =========================================================
-  // INITIALIZE AMAZON LOCATION MAP
+  // AMAZON LOCATION MAP
   // =========================================================
 
   useEffect(() => {
@@ -64,8 +69,6 @@ function App() {
     const map = new maplibregl.Map({
       container: mapContainerRef.current,
       style: styleUrl,
-
-      // India-wide initial view
       center: [78.9629, 20.5937],
       zoom: 4.5,
     });
@@ -92,7 +95,7 @@ function App() {
   }, [LOCATION_API_KEY]);
 
   // =========================================================
-  // RESIZE MAP WHEN EXPANDED
+  // RESIZE MAP
   // =========================================================
 
   useEffect(() => {
@@ -106,7 +109,7 @@ function App() {
   }, [isMapExpanded]);
 
   // =========================================================
-  // DISPLAY ALL BACKEND HAZARDS ON MAP
+  // DISPLAY HAZARDS ON MAP
   // =========================================================
 
   useEffect(() => {
@@ -116,11 +119,9 @@ function App() {
 
     if (!maplibregl) return;
 
-    // Remove previous markers
     markersRef.current.forEach((marker) => marker.remove());
     markersRef.current = [];
 
-    // Add backend reports
     backendReports.forEach((report) => {
       const color =
         report.severity === "HIGH"
@@ -152,7 +153,7 @@ function App() {
   }, [backendReports, mapReady]);
 
   // =========================================================
-  // FETCH REPORTS FROM API
+  // FETCH REPORTS
   // =========================================================
 
   const fetchReports = async () => {
@@ -175,7 +176,6 @@ function App() {
     }
   };
 
-  // Load reports when application starts
   useEffect(() => {
     fetchReports();
   }, []);
@@ -209,12 +209,8 @@ function App() {
         QueryText: searchText,
         MaxResults: 1,
 
-        // Amazon Location SearchText requires exactly one
-        // of BiasPosition, Filter.BoundingBox, or Filter.Circle.
-        // This biases the search toward the center of India.
         BiasPosition: [78.9629, 20.5937],
 
-        // Search only within India
         Filter: {
           IncludeCountries: ["IND"],
         },
@@ -262,14 +258,13 @@ function App() {
       locationName:
         result.Title || searchText,
 
-      // AWS returns [longitude, latitude]
       longitude: Number(result.Position[0]),
       latitude: Number(result.Position[1]),
     };
   };
 
   // =========================================================
-  // UPLOAD PHOTO TO S3 USING A PRESIGNED URL
+  // S3 PHOTO UPLOAD
   // =========================================================
 
   const uploadPhotoToS3 = async (file: File) => {
@@ -292,27 +287,34 @@ function App() {
 
     if (!urlResponse.ok) {
       throw new Error(
-        urlData.error || "Could not generate photo upload URL."
+        urlData.error ||
+          "Could not generate photo upload URL."
       );
     }
 
-    const uploadResponse = await fetch(urlData.uploadUrl, {
-      method: "PUT",
-      headers: {
-        "Content-Type": file.type || "image/jpeg",
-      },
-      body: file,
-    });
+    const uploadResponse = await fetch(
+      urlData.uploadUrl,
+      {
+        method: "PUT",
+        headers: {
+          "Content-Type":
+            file.type || "image/jpeg",
+        },
+        body: file,
+      }
+    );
 
     if (!uploadResponse.ok) {
-      throw new Error("Photo upload failed. Please try again.");
+      throw new Error(
+        "Photo upload failed. Please try again."
+      );
     }
 
     return urlData.photoKey as string;
   };
 
   // =========================================================
-  // SUBMIT HAZARD REPORT
+  // SUBMIT REPORT
   // =========================================================
 
   const submitReport = async () => {
@@ -333,20 +335,14 @@ function App() {
     setIsSubmitting(true);
 
     try {
-      // -----------------------------------------------------
-      // STEP 1: FIND LOCATION USING AMAZON LOCATION
-      // -----------------------------------------------------
-
+      // STEP 1 — LOCATION
       const place = await searchLocation(
         location.trim()
       );
 
       console.log("Found location:", place);
 
-      // -----------------------------------------------------
-      // STEP 2: MOVE MAP TO SEARCHED LOCATION
-      // -----------------------------------------------------
-
+      // STEP 2 — MOVE MAP
       if (mapRef.current) {
         mapRef.current.flyTo({
           center: [
@@ -358,50 +354,52 @@ function App() {
         });
       }
 
-      // -----------------------------------------------------
-      // STEP 3: UPLOAD PHOTO TO S3 (IF SELECTED)
-      // -----------------------------------------------------
-
+      // STEP 3 — PHOTO
       let photoKey = "";
 
       if (photoFile) {
         if (!photoFile.type.startsWith("image/")) {
-          throw new Error("Please select an image file.");
+          throw new Error(
+            "Please select an image file."
+          );
         }
 
         if (photoFile.size > 10 * 1024 * 1024) {
-          throw new Error("Photo must be smaller than 10 MB.");
+          throw new Error(
+            "Photo must be smaller than 10 MB."
+          );
         }
 
-        photoKey = await uploadPhotoToS3(photoFile);
+        photoKey = await uploadPhotoToS3(
+          photoFile
+        );
       }
 
-      // -----------------------------------------------------
-      // STEP 4: SEND REAL COORDINATES + PHOTO KEY TO API
-      // -----------------------------------------------------
-
+      // STEP 4 — API
       const response = await fetch(
         "https://cw6ehoudu9.execute-api.ap-southeast-2.amazonaws.com/reports",
         {
           method: "POST",
 
           headers: {
-            "Content-Type": "application/json",
+            "Content-Type":
+              "application/json",
           },
 
           body: JSON.stringify({
-            hazardType: hazardType,
-            description: description,
+            hazardType,
+            description,
 
-            // Real location name
-            location: place.locationName,
+            location:
+              place.locationName,
 
-            // Real coordinates
-            latitude: place.latitude,
-            longitude: place.longitude,
+            latitude:
+              place.latitude,
 
-            // S3 photo object key
-            photoKey: photoKey,
+            longitude:
+              place.longitude,
+
+            photoKey,
           }),
         }
       );
@@ -415,29 +413,24 @@ function App() {
         );
       }
 
-      console.log("AWS Response:", data);
+      console.log(
+        "AWS Response:",
+        data
+      );
 
-      // -----------------------------------------------------
-      // STEP 5: REFRESH REPORTS
-      // -----------------------------------------------------
-
+      // STEP 5 — REFRESH
       await fetchReports();
 
-      // -----------------------------------------------------
-      // STEP 6: SUCCESS
-      // -----------------------------------------------------
-
+      // STEP 6 — SUCCESS
       alert(
         `🚨 Hazard reported successfully at ${place.locationName}!`
       );
 
-      // Clear form
       setHazardType("High Waves");
       setLocation("");
       setDescription("");
       setPhotoFile(null);
 
-      // Close modal
       setShowModal(false);
     } catch (error) {
       console.error(
@@ -456,6 +449,31 @@ function App() {
   };
 
   // =========================================================
+  // DASHBOARD CALCULATIONS
+  // =========================================================
+
+  const highCount = backendReports.filter(
+    (r) => r.severity === "HIGH"
+  ).length;
+
+  const mediumCount = backendReports.filter(
+    (r) => r.severity === "MEDIUM"
+  ).length;
+
+  const lowCount = backendReports.filter(
+    (r) => r.severity === "LOW"
+  ).length;
+
+  const pendingCount = backendReports.filter(
+    (r) => r.status === "PENDING"
+  ).length;
+
+  const activeCount = backendReports.filter(
+    (r) =>
+      r.status !== "RESOLVED"
+  ).length;
+
+  // =========================================================
   // UI
   // =========================================================
 
@@ -463,33 +481,60 @@ function App() {
     <div className="app">
 
       {/* =====================================================
-          NAVBAR
+          COMMAND NAVIGATION
       ===================================================== */}
 
       <nav className="navbar">
+
         <div className="logo">
 
-          <span className="logo-icon">
+          <div className="logo-icon">
             🌊
-          </span>
+          </div>
 
           <div>
             <h2>WAVE WATCH</h2>
             <span>
-              Coastal Safety Platform
+              COASTAL INTELLIGENCE PLATFORM
             </span>
           </div>
 
         </div>
 
+        <div className="nav-links">
+          <button onClick={() =>
+            window.scrollTo({
+              top: 0,
+              behavior: "smooth",
+            })
+          }>
+            COMMAND CENTER
+          </button>
+
+          <button onClick={scrollToMap}>
+            LIVE MAP
+          </button>
+
+          <button onClick={() =>
+            document
+              .getElementById("reports-section")
+              ?.scrollIntoView({
+                behavior: "smooth",
+              })
+          }>
+            REPORTS
+          </button>
+        </div>
+
         <div className="nav-status">
           <span className="live-dot"></span>
-          System Live
+          SYSTEM OPERATIONAL
         </div>
+
       </nav>
 
       {/* =====================================================
-          HERO
+          HERO / COMMAND CENTER
       ===================================================== */}
 
       <section className="hero">
@@ -497,68 +542,95 @@ function App() {
         <div className="hero-content">
 
           <div className="hero-badge">
-            🌊 REAL-TIME COASTAL MONITORING
+            ● LIVE COASTAL MONITORING
+          </div>
+
+          <div className="hero-code">
+            WW // COMMAND CENTER // INDIA
           </div>
 
           <h1>
-            Stay Ahead of
+            Coastal Hazard
             <br />
-            <span>Coastal Hazards.</span>
+            <span>Command Center.</span>
           </h1>
 
           <p>
-            Wave Watch helps communities report, monitor
-            and manage coastal hazards using real-time
-            AWS cloud technology.
+            Real-time citizen intelligence,
+            geospatial monitoring and AWS-powered
+            hazard management for India's coastline.
           </p>
 
           <div className="hero-buttons">
 
             <button
               className="primary-button"
-              onClick={() => setShowModal(true)}
+              onClick={() =>
+                setShowModal(true)
+              }
             >
-              🚨 Report a Hazard
+              + REPORT HAZARD
             </button>
 
             <button
               className="secondary-button"
               onClick={scrollToMap}
             >
-              🗺️ View Live Map
+              OPEN LIVE MAP →
             </button>
 
+          </div>
+
+          <div className="hero-system-line">
+            <span>API</span>
+            <i></i>
+            <span>LAMBDA</span>
+            <i></i>
+            <span>DYNAMODB</span>
+            <i></i>
+            <span>S3</span>
+            <i></i>
+            <span>LOCATION</span>
           </div>
 
         </div>
 
         <div className="hero-visual">
 
-          <div className="ocean-circle">
+          <div className="radar">
 
-            <div className="wave wave-one"></div>
-            <div className="wave wave-two"></div>
-            <div className="wave wave-three"></div>
+            <div className="radar-ring ring-one"></div>
+            <div className="radar-ring ring-two"></div>
+            <div className="radar-ring ring-three"></div>
 
-            <div className="location-pin">
-              📍
+            <div className="radar-cross horizontal"></div>
+            <div className="radar-cross vertical"></div>
+
+            <div className="radar-sweep"></div>
+
+            <div className="radar-center">
+              <span></span>
             </div>
+
+            <div className="radar-point point-one"></div>
+            <div className="radar-point point-two"></div>
+            <div className="radar-point point-three"></div>
 
           </div>
 
-          <div className="floating-card">
+          <div className="hero-data-card">
 
-            <span className="small-label">
-              ACTIVE ALERT
+            <span>
+              MONITORING REGION
             </span>
 
             <strong>
-              High Wave Activity
+              INDIA
             </strong>
 
-            <span>
-              📍 Marina Beach
-            </span>
+            <small>
+              08 OCT 2026 // LIVE
+            </small>
 
           </div>
 
@@ -567,69 +639,75 @@ function App() {
       </section>
 
       {/* =====================================================
-          STATISTICS
+          KPI COMMAND BAR
       ===================================================== */}
 
       <section className="stats">
 
         <div className="stat-card">
-
-          <div className="stat-icon red">
-            🚨
+          <div className="stat-top">
+            <span>ACTIVE HAZARDS</span>
+            <b className="red-text">●</b>
           </div>
 
-          <div>
-            <span>Active Hazards</span>
-            <strong>12</strong>
-          </div>
+          <strong>
+            {activeCount}
+          </strong>
 
+          <small>
+            CURRENTLY MONITORED
+          </small>
         </div>
 
         <div className="stat-card">
-
-          <div className="stat-icon orange">
-            ⚠️
+          <div className="stat-top">
+            <span>CITIZEN REPORTS</span>
+            <b>◉</b>
           </div>
 
-          <div>
-            <span>Under Review</span>
-            <strong>7</strong>
-          </div>
+          <strong>
+            {backendReports.length}
+          </strong>
 
+          <small>
+            DYNAMODB RECORDS
+          </small>
         </div>
 
         <div className="stat-card">
-
-          <div className="stat-icon green">
-            ✓
+          <div className="stat-top">
+            <span>UNDER REVIEW</span>
+            <b className="orange-text">▲</b>
           </div>
 
-          <div>
-            <span>Resolved</span>
-            <strong>34</strong>
-          </div>
+          <strong>
+            {pendingCount}
+          </strong>
 
+          <small>
+            PENDING VALIDATION
+          </small>
         </div>
 
         <div className="stat-card">
-
-          <div className="stat-icon blue">
-            👥
+          <div className="stat-top">
+            <span>SYSTEM STATUS</span>
+            <b className="green-text">●</b>
           </div>
 
-          <div>
-            <span>Citizen Reports</span>
-            <strong>
-              {backendReports.length}
-            </strong>
-          </div>
+          <strong className="status-online">
+            ONLINE
+          </strong>
 
+          <small>
+            AWS INFRASTRUCTURE
+          </small>
         </div>
 
       </section>
 
       {/* =====================================================
-          MONITORING
+          LIVE MONITORING
       ===================================================== */}
 
       <section className="monitoring">
@@ -639,32 +717,30 @@ function App() {
           <div>
 
             <span className="section-tag">
-              LIVE MONITORING
+              LIVE MONITORING // 01
             </span>
 
             <h2>
-              Coastal Hazard Overview
+              Coastal Intelligence
             </h2>
 
             <p>
-              Monitor reported hazards across coastal
-              regions.
+              Real-time geospatial view of
+              reported coastal hazards.
             </p>
 
           </div>
 
           <div className="live-status">
             <span></span>
-            LIVE
+            LIVE DATA STREAM
           </div>
 
         </div>
 
         <div className="monitor-grid">
 
-          {/* =================================================
-              MAP
-          ================================================= */}
+          {/* MAP */}
 
           <div
             id="hazard-map"
@@ -679,12 +755,16 @@ function App() {
 
               <div>
 
+                <div className="map-label">
+                  GEO // INDIA
+                </div>
+
                 <h3>
-                  Hazard Map
+                  Hazard Activity Map
                 </h3>
 
                 <span>
-                  India-wide real-time coastal activity
+                  AMAZON LOCATION SERVICE
                 </span>
 
               </div>
@@ -693,13 +773,14 @@ function App() {
                 className="map-button"
                 onClick={() =>
                   setIsMapExpanded(
-                    (current) => !current
+                    (current) =>
+                      !current
                   )
                 }
               >
                 {isMapExpanded
-                  ? "Close Map ✕"
-                  : "Full Map ↗"}
+                  ? "CLOSE MAP ✕"
+                  : "EXPAND ↗"}
               </button>
 
             </div>
@@ -716,50 +797,42 @@ function App() {
 
               {!LOCATION_API_KEY && (
                 <div
-                  style={{
-                    position: "absolute",
-                    inset: 0,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    background:
-                      "rgba(6, 17, 31, 0.88)",
-                    color: "#e2e8f0",
-                    padding: "20px",
-                    textAlign: "center",
-                    zIndex: 2,
-                  }}
+                  className="map-error"
                 >
-                  Amazon Location API key is not configured.
+                  AMAZON LOCATION API KEY
+                  NOT CONFIGURED
                 </div>
               )}
 
             </div>
 
-            <div className="map-legend">
+            <div className="map-footer">
 
               <span>
                 <i className="legend-red"></i>
-                High
+                HIGH ({highCount})
               </span>
 
               <span>
                 <i className="legend-orange"></i>
-                Medium
+                MEDIUM ({mediumCount})
               </span>
 
               <span>
                 <i className="legend-green"></i>
-                Low
+                LOW ({lowCount})
+              </span>
+
+              <span className="map-coordinates">
+                INDIA // 20.5937°N
+                78.9629°E
               </span>
 
             </div>
 
           </div>
 
-          {/* =================================================
-              ALERT PANEL
-          ================================================= */}
+          {/* ALERT PANEL */}
 
           <div className="alert-card">
 
@@ -768,92 +841,88 @@ function App() {
               <div>
 
                 <span className="section-tag">
-                  URGENT
+                  PRIORITY QUEUE
                 </span>
 
                 <h3>
-                  Current Alerts
+                  Active Alerts
                 </h3>
 
               </div>
 
               <span className="alert-count">
-                3
+                {activeCount}
               </span>
 
             </div>
 
-            <div className="alert-item high">
+            {backendReports.length === 0 ? (
 
-              <div className="alert-icon">
-                🌊
-              </div>
-
-              <div>
-
+              <div className="empty-alerts">
                 <strong>
-                  High Wave Activity
+                  NO ACTIVE SIGNALS
                 </strong>
-
                 <span>
-                  Marina Beach
+                  Awaiting incoming
+                  citizen reports.
                 </span>
-
-                <small>
-                  8 minutes ago
-                </small>
-
               </div>
 
-            </div>
+            ) : (
 
-            <div className="alert-item medium">
+              backendReports
+                .slice()
+                .reverse()
+                .slice(0, 5)
+                .map((report) => (
 
-              <div className="alert-icon">
-                🌧️
-              </div>
+                  <div
+                    className={`alert-item ${
+                      report.severity.toLowerCase()
+                    }`}
+                    key={report.reportId}
+                  >
 
-              <div>
+                    <div className="alert-icon">
+                      {report.severity ===
+                      "HIGH"
+                        ? "!"
+                        : report.severity ===
+                            "MEDIUM"
+                          ? "▲"
+                          : "•"}
+                    </div>
 
-                <strong>
-                  Coastal Flooding
-                </strong>
+                    <div>
 
-                <span>
-                  Besant Nagar
-                </span>
+                      <strong>
+                        {report.hazardType}
+                      </strong>
 
-                <small>
-                  24 minutes ago
-                </small>
+                      <span>
+                        📍{" "}
+                        {report.location ||
+                          "Unknown"}
+                      </span>
 
-              </div>
+                      <small>
+                        {report.status ===
+                        "PENDING"
+                          ? "UNDER REVIEW"
+                          : report.status}
+                      </small>
 
-            </div>
+                    </div>
 
-            <div className="alert-item low">
+                    <b>
+                      {report.severity}
+                    </b>
 
-              <div className="alert-icon">
-                💨
-              </div>
+                  </div>
 
-              <div>
+                ))
 
-                <strong>
-                  Strong Winds
-                </strong>
-
-                <span>
-                  Kovalam
-                </span>
-
-                <small>
-                  41 minutes ago
-                </small>
-
-              </div>
-
-            </div>
+            )}
 
           </div>
 
@@ -862,25 +931,29 @@ function App() {
       </section>
 
       {/* =====================================================
-          RECENT REPORTS
+          REPORT TABLE
       ===================================================== */}
 
-      <section className="reports">
+      <section
+        className="reports"
+        id="reports-section"
+      >
 
         <div className="section-heading">
 
           <div>
 
             <span className="section-tag">
-              CITIZEN REPORTS
+              CITIZEN INTELLIGENCE // 02
             </span>
 
             <h2>
-              Recent Hazard Reports
+              Incoming Hazard Reports
             </h2>
 
             <p>
-              Latest observations submitted by the community.
+              Live observations ingested
+              through the Wave Watch API.
             </p>
 
           </div>
@@ -891,7 +964,7 @@ function App() {
               setShowModal(true)
             }
           >
-            + New Report
+            + NEW REPORT
           </button>
 
         </div>
@@ -903,21 +976,13 @@ function App() {
             <span>LOCATION</span>
             <span>SEVERITY</span>
             <span>STATUS</span>
-            <span>REPORTED</span>
+            <span>TIMESTAMP</span>
           </div>
 
           {backendReports.length === 0 ? (
 
-            <div
-              className="report-row"
-              style={{
-                display: "flex",
-                justifyContent: "center",
-                padding: "30px",
-                color: "#94a3b8",
-              }}
-            >
-              No hazard reports available yet.
+            <div className="empty-table">
+              NO REPORTS AVAILABLE
             </div>
 
           ) : (
@@ -928,16 +993,20 @@ function App() {
               .map((report) => {
 
                 const severity =
-                  report.severity === "HIGH"
+                  report.severity ===
+                  "HIGH"
                     ? "High"
-                    : report.severity === "LOW"
+                    : report.severity ===
+                        "LOW"
                       ? "Low"
                       : "Medium";
 
                 const status =
-                  report.status === "PENDING"
+                  report.status ===
+                  "PENDING"
                     ? "Under Review"
-                    : report.status === "RESOLVED"
+                    : report.status ===
+                        "RESOLVED"
                       ? "Resolved"
                       : "Active";
 
@@ -952,13 +1021,15 @@ function App() {
 
                   <div
                     className="report-row"
-                    key={report.reportId}
+                    key={
+                      report.reportId
+                    }
                   >
 
                     <div className="hazard-name">
 
                       <div className="report-icon">
-                        ⚠️
+                        ⚠
                       </div>
 
                       <strong>
@@ -982,7 +1053,10 @@ function App() {
                     <span
                       className={`report-status ${status
                         .toLowerCase()
-                        .replace(" ", "-")}`}
+                        .replace(
+                          " ",
+                          "-"
+                        )}`}
                     >
                       {status}
                     </span>
@@ -1003,25 +1077,87 @@ function App() {
       </section>
 
       {/* =====================================================
-          AWS ARCHITECTURE
+          SYSTEM PIPELINE
       ===================================================== */}
 
-      <section className="aws-section">
+      <section className="pipeline-section">
 
         <div className="section-heading center">
 
           <span className="section-tag">
-            CLOUD INFRASTRUCTURE
+            AWS INFRASTRUCTURE // 03
           </span>
 
           <h2>
-            Powered by AWS
+            Operational Data Pipeline
           </h2>
 
           <p>
-            Built with scalable AWS services for reliable
-            coastal hazard monitoring.
+            From citizen observation to
+            cloud-based hazard intelligence.
           </p>
+
+        </div>
+
+        <div className="pipeline">
+
+          <div className="pipeline-node active">
+            <span>01</span>
+            <strong>
+              CITIZEN
+            </strong>
+            <small>
+              REPORT
+            </small>
+          </div>
+
+          <div className="pipeline-line"></div>
+
+          <div className="pipeline-node active">
+            <span>02</span>
+            <strong>
+              API GATEWAY
+            </strong>
+            <small>
+              INGESTION
+            </small>
+          </div>
+
+          <div className="pipeline-line"></div>
+
+          <div className="pipeline-node active">
+            <span>03</span>
+            <strong>
+              LAMBDA
+            </strong>
+            <small>
+              PROCESSING
+            </small>
+          </div>
+
+          <div className="pipeline-line"></div>
+
+          <div className="pipeline-node active">
+            <span>04</span>
+            <strong>
+              DYNAMODB
+            </strong>
+            <small>
+              STORAGE
+            </small>
+          </div>
+
+          <div className="pipeline-line"></div>
+
+          <div className="pipeline-node active">
+            <span>05</span>
+            <strong>
+              LOCATION
+            </strong>
+            <small>
+              GEOSPATIAL
+            </small>
+          </div>
 
         </div>
 
@@ -1029,32 +1165,42 @@ function App() {
 
           <div>
             <strong>⚡</strong>
-            <span>Amplify</span>
+            <span>AMPLIFY</span>
           </div>
 
           <div>
-            <strong>🔗</strong>
-            <span>API Gateway</span>
+            <strong>⇄</strong>
+            <span>API GATEWAY</span>
           </div>
 
           <div>
             <strong>λ</strong>
-            <span>Lambda</span>
+            <span>LAMBDA</span>
           </div>
 
           <div>
-            <strong>🗄️</strong>
-            <span>DynamoDB</span>
+            <strong>▣</strong>
+            <span>DYNAMODB</span>
           </div>
 
           <div>
-            <strong>📦</strong>
+            <strong>◈</strong>
             <span>S3</span>
           </div>
 
           <div>
-            <strong>📍</strong>
-            <span>Location</span>
+            <strong>◎</strong>
+            <span>LOCATION</span>
+          </div>
+
+          <div>
+            <strong>◉</strong>
+            <span>EVENTBRIDGE</span>
+          </div>
+
+          <div>
+            <strong>◌</strong>
+            <span>CLOUDWATCH</span>
           </div>
 
         </div>
@@ -1072,11 +1218,11 @@ function App() {
         </div>
 
         <span>
-          Coastal Hazard Monitoring System
+          COASTAL HAZARD INTELLIGENCE SYSTEM
         </span>
 
         <span>
-          Built with AWS ☁️
+          AWS // AP-SOUTHEAST-2
         </span>
 
       </footer>
@@ -1110,23 +1256,32 @@ function App() {
               ×
             </button>
 
-            <div className="modal-icon">
-              🚨
+            <div className="modal-header">
+
+              <span className="modal-code">
+                INCIDENT // NEW
+              </span>
+
+              <div className="modal-icon">
+                ⚠
+              </div>
+
+              <h2>
+                Report Coastal Hazard
+              </h2>
+
+              <p>
+                Submit a field observation
+                to the Wave Watch
+                intelligence network.
+              </p>
+
             </div>
 
-            <h2>
-              Report a Coastal Hazard
-            </h2>
-
-            <p>
-              Help keep coastal communities safe by
-              reporting what you observe.
-            </p>
-
-            {/* HAZARD TYPE */}
+            {/* HAZARD */}
 
             <label>
-              Hazard Type
+              HAZARD TYPE
             </label>
 
             <select
@@ -1163,7 +1318,7 @@ function App() {
             {/* LOCATION */}
 
             <label>
-              Location
+              LOCATION
             </label>
 
             <input
@@ -1180,11 +1335,11 @@ function App() {
             {/* DESCRIPTION */}
 
             <label>
-              Description
+              FIELD OBSERVATION
             </label>
 
             <textarea
-              placeholder="Describe the hazard..."
+              placeholder="Describe the observed coastal hazard..."
               rows={4}
               value={description}
               onChange={(e) =>
@@ -1197,9 +1352,10 @@ function App() {
             {/* PHOTO */}
 
             <label>
-              Photo Evidence{" "}
-              <span style={{ opacity: 0.65 }}>
-                (optional)
+              PHOTO EVIDENCE
+              <span>
+                {" "}
+                // OPTIONAL
               </span>
             </label>
 
@@ -1208,21 +1364,16 @@ function App() {
               accept="image/*"
               onChange={(e) =>
                 setPhotoFile(
-                  e.target.files?.[0] || null
+                  e.target.files?.[0] ||
+                    null
                 )
               }
             />
 
             {photoFile && (
-              <div
-                style={{
-                  marginTop: "8px",
-                  marginBottom: "16px",
-                  fontSize: "13px",
-                  color: "#94a3b8",
-                }}
-              >
-                📷 Selected: {photoFile.name}
+              <div className="selected-file">
+                📷{" "}
+                {photoFile.name}
               </div>
             )}
 
@@ -1235,9 +1386,9 @@ function App() {
             >
               {isSubmitting
                 ? photoFile
-                  ? "Finding location & uploading..."
-                  : "Finding location & submitting..."
-                : "Submit Report"}
+                  ? "PROCESSING // UPLOADING..."
+                  : "PROCESSING // SUBMITTING..."
+                : "TRANSMIT REPORT →"}
             </button>
 
           </div>
