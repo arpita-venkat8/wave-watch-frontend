@@ -45,6 +45,60 @@ function App() {
   const [mapReady, setMapReady] = useState(false);
 
   // =========================================================
+  // REPORT MANAGEMENT FILTERS
+  // =========================================================
+
+  const [reportSearch, setReportSearch] = useState("");
+  const [severityFilter, setSeverityFilter] = useState("ALL");
+  const [statusFilter, setStatusFilter] = useState("ALL");
+  const [hazardFilter, setHazardFilter] = useState("ALL");
+
+  const hazardTypes = Array.from(
+    new Set(backendReports.map((report) => report.hazardType))
+  ).sort();
+
+  const filteredReports = backendReports.filter((report) => {
+    const search = reportSearch.trim().toLowerCase();
+
+    const matchesSearch =
+      !search ||
+      report.hazardType.toLowerCase().includes(search) ||
+      (report.location || "").toLowerCase().includes(search) ||
+      report.description.toLowerCase().includes(search);
+
+    const matchesSeverity =
+      severityFilter === "ALL" ||
+      report.severity === severityFilter;
+
+    const matchesStatus =
+      statusFilter === "ALL" ||
+      report.status === statusFilter;
+
+    const matchesHazard =
+      hazardFilter === "ALL" ||
+      report.hazardType === hazardFilter;
+
+    return (
+      matchesSearch &&
+      matchesSeverity &&
+      matchesStatus &&
+      matchesHazard
+    );
+  });
+
+  const activeHazardsCount = backendReports.filter(
+    (report) => report.status !== "RESOLVED"
+  ).length;
+
+  const underReviewCount = backendReports.filter(
+    (report) => report.status === "PENDING"
+  ).length;
+
+  const resolvedCount = backendReports.filter(
+    (report) => report.status === "RESOLVED"
+  ).length;
+
+  // =========================================================
   // INITIALIZE AMAZON LOCATION MAP
   // =========================================================
 
@@ -589,7 +643,7 @@ function App() {
 
           <div>
             <span>Active Hazards</span>
-            <strong>12</strong>
+            <strong>{activeHazardsCount}</strong>
           </div>
 
         </div>
@@ -602,7 +656,7 @@ function App() {
 
           <div>
             <span>Under Review</span>
-            <strong>7</strong>
+            <strong>{underReviewCount}</strong>
           </div>
 
         </div>
@@ -615,7 +669,7 @@ function App() {
 
           <div>
             <span>Resolved</span>
-            <strong>34</strong>
+            <strong>{resolvedCount}</strong>
           </div>
 
         </div>
@@ -905,6 +959,131 @@ function App() {
 
         </div>
 
+        {/* REPORT FILTERS */}
+        <div
+          className="report-filters"
+          style={{
+            display: "grid",
+            gridTemplateColumns: "minmax(220px, 2fr) repeat(3, minmax(150px, 1fr))",
+            gap: "12px",
+            marginBottom: "18px",
+          }}
+        >
+          <input
+            type="text"
+            value={reportSearch}
+            onChange={(e) => setReportSearch(e.target.value)}
+            placeholder="🔍 Search hazard, location or description..."
+            style={{
+              width: "100%",
+              padding: "12px 14px",
+              borderRadius: "10px",
+              border: "1px solid rgba(148, 163, 184, 0.25)",
+              background: "rgba(15, 23, 42, 0.75)",
+              color: "#e2e8f0",
+              outline: "none",
+            }}
+          />
+
+          <select
+            value={hazardFilter}
+            onChange={(e) => setHazardFilter(e.target.value)}
+            style={{
+              width: "100%",
+              padding: "12px 14px",
+              borderRadius: "10px",
+              border: "1px solid rgba(148, 163, 184, 0.25)",
+              background: "#0f172a",
+              color: "#e2e8f0",
+              outline: "none",
+            }}
+          >
+            <option value="ALL">All Hazards</option>
+            {hazardTypes.map((type) => (
+              <option key={type} value={type}>
+                {type}
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={severityFilter}
+            onChange={(e) => setSeverityFilter(e.target.value)}
+            style={{
+              width: "100%",
+              padding: "12px 14px",
+              borderRadius: "10px",
+              border: "1px solid rgba(148, 163, 184, 0.25)",
+              background: "#0f172a",
+              color: "#e2e8f0",
+              outline: "none",
+            }}
+          >
+            <option value="ALL">All Severity</option>
+            <option value="HIGH">High</option>
+            <option value="MEDIUM">Medium</option>
+            <option value="LOW">Low</option>
+          </select>
+
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            style={{
+              width: "100%",
+              padding: "12px 14px",
+              borderRadius: "10px",
+              border: "1px solid rgba(148, 163, 184, 0.25)",
+              background: "#0f172a",
+              color: "#e2e8f0",
+              outline: "none",
+            }}
+          >
+            <option value="ALL">All Status</option>
+            <option value="PENDING">Under Review</option>
+            <option value="ACTIVE">Active</option>
+            <option value="RESOLVED">Resolved</option>
+          </select>
+        </div>
+
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginBottom: "12px",
+            color: "#94a3b8",
+            fontSize: "13px",
+          }}
+        >
+          <span>
+            Showing {filteredReports.length} of {backendReports.length} reports
+          </span>
+
+          {(reportSearch ||
+            severityFilter !== "ALL" ||
+            statusFilter !== "ALL" ||
+            hazardFilter !== "ALL") && (
+            <button
+              type="button"
+              onClick={() => {
+                setReportSearch("");
+                setSeverityFilter("ALL");
+                setStatusFilter("ALL");
+                setHazardFilter("ALL");
+              }}
+              style={{
+                background: "transparent",
+                border: "none",
+                color: "#38bdf8",
+                cursor: "pointer",
+                fontSize: "13px",
+              }}
+            >
+              Clear filters
+            </button>
+          )}
+        </div>
+
         <div className="reports-table">
 
           <div className="table-header">
@@ -929,78 +1108,106 @@ function App() {
               No hazard reports available yet.
             </div>
 
+          ) : filteredReports.length === 0 ? (
+
+            <div
+              className="report-row"
+              style={{
+                display: "flex",
+                justifyContent: "center",
+                padding: "30px",
+                color: "#94a3b8",
+              }}
+            >
+              No reports match the selected filters.
+            </div>
+
           ) : (
 
-            backendReports.map((report) => {
+            filteredReports.map((report) => {
 
-                const severity =
-                  report.severity === "HIGH"
-                    ? "High"
-                    : report.severity === "LOW"
-                      ? "Low"
-                      : "Medium";
+              const severity =
+                report.severity === "HIGH"
+                  ? "High"
+                  : report.severity === "LOW"
+                    ? "Low"
+                    : "Medium";
 
-                const status =
-                  report.status === "PENDING"
-                    ? "Under Review"
-                    : report.status === "RESOLVED"
-                      ? "Resolved"
-                      : "Active";
+              const status =
+                report.status === "PENDING"
+                  ? "Under Review"
+                  : report.status === "RESOLVED"
+                    ? "Resolved"
+                    : "Active";
 
-                const reportedTime =
-                  report.timestamp
-                    ? new Date(
-                        report.timestamp
-                      ).toLocaleString()
-                    : "Recently";
+              const reportedTime =
+                report.timestamp
+                  ? new Date(report.timestamp).toLocaleString()
+                  : "Recently";
 
-                return (
+              return (
 
-                  <div
-                    className="report-row"
-                    key={report.reportId}
-                  >
+                <div
+                  className="report-row"
+                  key={report.reportId}
+                  style={{ cursor: "pointer" }}
+                  onClick={() => {
+                    if (mapRef.current) {
+                      mapRef.current.flyTo({
+                        center: [
+                          Number(report.longitude),
+                          Number(report.latitude),
+                        ],
+                        zoom: 11,
+                        essential: true,
+                      });
+                    }
 
-                    <div className="hazard-name">
+                    scrollToMap();
+                  }}
+                  title="View this hazard on the map"
+                >
 
-                      <div className="report-icon">
-                        ⚠️
-                      </div>
+                  <div className="hazard-name">
 
-                      <strong>
-                        {report.hazardType}
-                      </strong>
-
+                    <div className="report-icon">
+                      ⚠️
                     </div>
 
-                    <span className="location">
-                      📍{" "}
-                      {report.location ||
-                        "Reported location"}
-                    </span>
-
-                    <span
-                      className={`severity ${severity.toLowerCase()}`}
-                    >
-                      {severity}
-                    </span>
-
-                    <span
-                      className={`report-status ${status
-                        .toLowerCase()
-                        .replace(" ", "-")}`}
-                    >
-                      {status}
-                    </span>
-
-                    <span className="time">
-                      {reportedTime}
-                    </span>
+                    <strong>
+                      {report.hazardType}
+                    </strong>
 
                   </div>
 
-                );
-              })
+                  <span className="location">
+                    📍{" "}
+                    {report.location ||
+                      "Reported location"}
+                  </span>
+
+                  <span
+                    className={`severity ${severity.toLowerCase()}`}
+                  >
+                    {severity}
+                  </span>
+
+                  <span
+                    className={`report-status ${status
+                      .toLowerCase()
+                      .replace(" ", "-")}`}
+                  >
+                    {status}
+                  </span>
+
+                  <span className="time">
+                    {reportedTime}
+                  </span>
+
+                </div>
+
+              );
+            })
 
           )}
 
