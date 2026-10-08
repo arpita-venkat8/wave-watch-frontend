@@ -543,61 +543,75 @@ function App() {
 
         <div className="hero-visual radar-visual">
 
-          <div className="radar-grid">
-            <div className="radar-ring radar-ring-1"></div>
-            <div className="radar-ring radar-ring-2"></div>
-            <div className="radar-ring radar-ring-3"></div>
+          <div className="command-visual">
 
-            <div className="radar-cross horizontal"></div>
-            <div className="radar-cross vertical"></div>
-
-            <div className="radar-sweep"></div>
-
-            <div className="route route-1">
-              <span className="route-signal signal-1"></span>
+            <div className="visual-topbar">
+              <div>
+                <span className="visual-kicker">LIVE COASTAL INTELLIGENCE</span>
+                <strong>INDIA COASTAL NETWORK</strong>
+              </div>
+              <span className="visual-live"><i></i> MONITORING</span>
             </div>
 
-            <div className="route route-2">
-              <span className="route-signal signal-2"></span>
+            <div className="coast-grid">
+              <div className="grid-lines"></div>
+
+              <div className="coast-outline coast-one"></div>
+              <div className="coast-outline coast-two"></div>
+
+              <div className="route-line route-line-one">
+                <span className="route-dot route-dot-one"></span>
+              </div>
+              <div className="route-line route-line-two">
+                <span className="route-dot route-dot-two"></span>
+              </div>
+              <div className="route-line route-line-three">
+                <span className="route-dot route-dot-three"></span>
+              </div>
+
+              <div className="monitor-node monitor-node-one">
+                <span></span>
+              </div>
+              <div className="monitor-node monitor-node-two">
+                <span></span>
+              </div>
+              <div className="monitor-node monitor-node-three hazard-node">
+                <span></span>
+              </div>
+
+              <div className="scan-sweep"></div>
+
+              <div className="location-tag tag-one">
+                <span>MONITORED</span>
+                <strong>CHENNAI COAST</strong>
+              </div>
+
+              <div className="location-tag tag-two">
+                <span>ALERT</span>
+                <strong>HIGH WAVE</strong>
+              </div>
+
+              <div className="network-center">
+                <div className="network-ring"></div>
+                <div className="network-core">WW</div>
+              </div>
             </div>
 
-            <div className="radar-node node-center">
-              <span></span>
+            <div className="visual-footer">
+              <div>
+                <span>NETWORK STATUS</span>
+                <strong>All monitoring services operational</strong>
+              </div>
+              <div className="visual-metric">
+                <span>REGION</span>
+                <strong>INDIA</strong>
+              </div>
+              <div className="visual-metric">
+                <span>DATA FLOW</span>
+                <strong>REAL-TIME</strong>
+              </div>
             </div>
 
-            <div className="radar-node node-a">
-              <span></span>
-            </div>
-
-            <div className="radar-node node-b">
-              <span></span>
-            </div>
-
-            <div className="radar-node hazard-node">
-              <span></span>
-            </div>
-
-            <div className="radar-label label-a">VISUAL SIGNAL</div>
-            <div className="radar-label label-b">COASTAL ZONE</div>
-            <div className="radar-label label-hazard">HAZARD DETECTED</div>
-
-            <div className="radar-center">
-              <div className="radar-center-icon">◉</div>
-              <strong>WAVE WATCH</strong>
-              <span>LIVE MONITORING</span>
-            </div>
-          </div>
-
-          <div className="floating-card radar-status-card">
-            <span className="small-label">
-              ● ACTIVE SCAN
-            </span>
-            <strong>
-              Coastal Signal Detected
-            </strong>
-            <span>
-              ↗ Routing to hazard zone
-            </span>
           </div>
 
         </div>
