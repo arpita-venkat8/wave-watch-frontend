@@ -32,6 +32,7 @@ function App() {
   // =========================================================
 
   const [hazardType, setHazardType] = useState("High Waves");
+  const [customHazardType, setCustomHazardType] = useState("");
   const [location, setLocation] = useState("");
   const [description, setDescription] = useState("");
   const [photoFile, setPhotoFile] = useState<File | null>(null);
@@ -301,20 +302,26 @@ function App() {
 
     if (!urlResponse.ok) {
       throw new Error(
-        urlData.error || "Could not generate photo upload URL."
+        urlData.error ||
+          "Could not generate photo upload URL."
       );
     }
 
-    const uploadResponse = await fetch(urlData.uploadUrl, {
-      method: "PUT",
-      headers: {
-        "Content-Type": file.type || "image/jpeg",
-      },
-      body: file,
-    });
+    const uploadResponse = await fetch(
+      urlData.uploadUrl,
+      {
+        method: "PUT",
+        headers: {
+          "Content-Type": file.type || "image/jpeg",
+        },
+        body: file,
+      }
+    );
 
     if (!uploadResponse.ok) {
-      throw new Error("Photo upload failed. Please try again.");
+      throw new Error(
+        "Photo upload failed. Please try again."
+      );
     }
 
     return urlData.photoKey as string;
@@ -325,10 +332,20 @@ function App() {
   // =========================================================
 
   const submitReport = async () => {
+    // Basic validation
     if (!location.trim() || !description.trim()) {
       alert(
         "Please enter the location and description."
       );
+      return;
+    }
+
+    // Custom hazard validation
+    if (
+      hazardType === "Other" &&
+      !customHazardType.trim()
+    ) {
+      alert("Please specify the hazard type.");
       return;
     }
 
@@ -375,18 +392,31 @@ function App() {
 
       if (photoFile) {
         if (!photoFile.type.startsWith("image/")) {
-          throw new Error("Please select an image file.");
+          throw new Error(
+            "Please select an image file."
+          );
         }
 
         if (photoFile.size > 10 * 1024 * 1024) {
-          throw new Error("Photo must be smaller than 10 MB.");
+          throw new Error(
+            "Photo must be smaller than 10 MB."
+          );
         }
 
         photoKey = await uploadPhotoToS3(photoFile);
       }
 
       // -----------------------------------------------------
-      // STEP 4: SEND REAL COORDINATES + PHOTO KEY TO API
+      // STEP 4: DETERMINE FINAL HAZARD TYPE
+      // -----------------------------------------------------
+
+      const finalHazardType =
+        hazardType === "Other"
+          ? customHazardType.trim()
+          : hazardType;
+
+      // -----------------------------------------------------
+      // STEP 5: SEND REAL COORDINATES + PHOTO KEY TO API
       // -----------------------------------------------------
 
       const response = await fetch(
@@ -399,7 +429,8 @@ function App() {
           },
 
           body: JSON.stringify({
-            hazardType: hazardType,
+            hazardType: finalHazardType,
+
             description: description,
 
             // Real location name
@@ -427,27 +458,29 @@ function App() {
       console.log("AWS Response:", data);
 
       // -----------------------------------------------------
-      // STEP 5: REFRESH REPORTS
+      // STEP 6: REFRESH REPORTS
       // -----------------------------------------------------
 
       await fetchReports();
 
       // -----------------------------------------------------
-      // STEP 6: SUCCESS
+      // STEP 7: SUCCESS
       // -----------------------------------------------------
 
       alert(
-        `🚨 Hazard reported successfully at ${place.locationName}!`
+        `🚨 ${finalHazardType} reported successfully at ${place.locationName}!`
       );
 
       // Clear form
       setHazardType("High Waves");
+      setCustomHazardType("");
       setLocation("");
       setDescription("");
       setPhotoFile(null);
 
       // Close modal
       setShowModal(false);
+
     } catch (error) {
       console.error(
         "Error submitting report:",
@@ -476,6 +509,7 @@ function App() {
       ===================================================== */}
 
       <nav className="navbar">
+
         <div className="logo">
 
           <span className="logo-icon">
@@ -484,6 +518,7 @@ function App() {
 
           <div>
             <h2>WAVE WATCH</h2>
+
             <span>
               Coastal Safety Platform
             </span>
@@ -495,6 +530,7 @@ function App() {
           <span className="live-dot"></span>
           System Live
         </div>
+
       </nav>
 
       {/* =====================================================
@@ -628,9 +664,11 @@ function App() {
 
           <div>
             <span>Citizen Reports</span>
+
             <strong>
               {backendReports.length}
             </strong>
+
           </div>
 
         </div>
@@ -933,74 +971,74 @@ function App() {
 
             backendReports.map((report) => {
 
-                const severity =
-                  report.severity === "HIGH"
-                    ? "High"
-                    : report.severity === "LOW"
-                      ? "Low"
-                      : "Medium";
+              const severity =
+                report.severity === "HIGH"
+                  ? "High"
+                  : report.severity === "LOW"
+                    ? "Low"
+                    : "Medium";
 
-                const status =
-                  report.status === "PENDING"
-                    ? "Under Review"
-                    : report.status === "RESOLVED"
-                      ? "Resolved"
-                      : "Active";
+              const status =
+                report.status === "PENDING"
+                  ? "Under Review"
+                  : report.status === "RESOLVED"
+                    ? "Resolved"
+                    : "Active";
 
-                const reportedTime =
-                  report.timestamp
-                    ? new Date(
-                        report.timestamp
-                      ).toLocaleString()
-                    : "Recently";
+              const reportedTime =
+                report.timestamp
+                  ? new Date(
+                      report.timestamp
+                    ).toLocaleString()
+                  : "Recently";
 
-                return (
+              return (
 
-                  <div
-                    className="report-row"
-                    key={report.reportId}
-                  >
+                <div
+                  className="report-row"
+                  key={report.reportId}
+                >
 
-                    <div className="hazard-name">
+                  <div className="hazard-name">
 
-                      <div className="report-icon">
-                        ⚠️
-                      </div>
-
-                      <strong>
-                        {report.hazardType}
-                      </strong>
-
+                    <div className="report-icon">
+                      ⚠️
                     </div>
 
-                    <span className="location">
-                      📍{" "}
-                      {report.location ||
-                        "Reported location"}
-                    </span>
-
-                    <span
-                      className={`severity ${severity.toLowerCase()}`}
-                    >
-                      {severity}
-                    </span>
-
-                    <span
-                      className={`report-status ${status
-                        .toLowerCase()
-                        .replace(" ", "-")}`}
-                    >
-                      {status}
-                    </span>
-
-                    <span className="time">
-                      {reportedTime}
-                    </span>
+                    <strong>
+                      {report.hazardType}
+                    </strong>
 
                   </div>
 
-                );
-              })
+                  <span className="location">
+                    📍{" "}
+                    {report.location ||
+                      "Reported location"}
+                  </span>
+
+                  <span
+                    className={`severity ${severity.toLowerCase()}`}
+                  >
+                    {severity}
+                  </span>
+
+                  <span
+                    className={`report-status ${status
+                      .toLowerCase()
+                      .replace(" ", "-")}`}
+                  >
+                    {status}
+                  </span>
+
+                  <span className="time">
+                    {reportedTime}
+                  </span>
+
+                </div>
+
+              );
+            })
 
           )}
 
@@ -1129,7 +1167,9 @@ function App() {
               reporting what you observe.
             </p>
 
-            {/* HAZARD TYPE */}
+            {/* =================================================
+                HAZARD TYPE
+            ================================================= */}
 
             <label>
               Hazard Type
@@ -1137,11 +1177,16 @@ function App() {
 
             <select
               value={hazardType}
-              onChange={(e) =>
-                setHazardType(
-                  e.target.value
-                )
-              }
+              onChange={(e) => {
+                const value = e.target.value;
+
+                setHazardType(value);
+
+                // Clear custom name when leaving Other
+                if (value !== "Other") {
+                  setCustomHazardType("");
+                }
+              }}
             >
 
               <option>
@@ -1166,7 +1211,40 @@ function App() {
 
             </select>
 
-            {/* LOCATION */}
+            {/* =================================================
+                CUSTOM HAZARD TYPE
+            ================================================= */}
+
+            {hazardType === "Other" && (
+              <>
+                <label>
+                  Specify Hazard Type
+                  <span
+                    style={{
+                      color: "#ef4444",
+                      marginLeft: "4px",
+                    }}
+                  >
+                    *
+                  </span>
+                </label>
+
+                <input
+                  type="text"
+                  placeholder="e.g. Oil Spill, Tsunami, Marine Debris"
+                  value={customHazardType}
+                  onChange={(e) =>
+                    setCustomHazardType(
+                      e.target.value
+                    )
+                  }
+                />
+              </>
+            )}
+
+            {/* =================================================
+                LOCATION
+            ================================================= */}
 
             <label>
               Location
@@ -1183,7 +1261,9 @@ function App() {
               }
             />
 
-            {/* DESCRIPTION */}
+            {/* =================================================
+                DESCRIPTION
+            ================================================= */}
 
             <label>
               Description
@@ -1200,7 +1280,9 @@ function App() {
               }
             ></textarea>
 
-            {/* PHOTO */}
+            {/* =================================================
+                PHOTO
+            ================================================= */}
 
             <label>
               Photo Evidence{" "}
@@ -1232,7 +1314,9 @@ function App() {
               </div>
             )}
 
-            {/* SUBMIT */}
+            {/* =================================================
+                SUBMIT
+            ================================================= */}
 
             <button
               className="primary-button submit"
