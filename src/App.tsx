@@ -20,7 +20,6 @@ function App() {
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<any>(null);
   const markersRef = useRef<any[]>([]);
-  const locationPreviewMarkerRef = useRef<any>(null);
 
   const LOCATION_API_KEY =
     import.meta.env.VITE_LOCATION_API_KEY as string;
@@ -33,15 +32,7 @@ function App() {
   // =========================================================
 
   const [hazardType, setHazardType] = useState("High Waves");
-  const [customHazardType, setCustomHazardType] = useState("");
   const [location, setLocation] = useState("");
-  const [resolvedPlace, setResolvedPlace] = useState<{
-    locationName: string;
-    addressLabel: string;
-    latitude: number;
-    longitude: number;
-  } | null>(null);
-  const [isResolvingLocation, setIsResolvingLocation] = useState(false);
   const [description, setDescription] = useState("");
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -93,11 +84,6 @@ function App() {
     return () => {
       markersRef.current.forEach((marker) => marker.remove());
       markersRef.current = [];
-
-      if (locationPreviewMarkerRef.current) {
-        locationPreviewMarkerRef.current.remove();
-        locationPreviewMarkerRef.current = null;
-      }
 
       map.remove();
       mapRef.current = null;
@@ -281,88 +267,14 @@ function App() {
       );
     }
 
-    const addressLabel =
-      result.Address?.Label ||
-      result.Address?.Freeform ||
-      result.Title ||
-      searchText;
-
     return {
-      locationName: result.Title || searchText,
-      addressLabel,
+      locationName:
+        result.Title || searchText,
 
       // AWS returns [longitude, latitude]
       longitude: Number(result.Position[0]),
       latitude: Number(result.Position[1]),
     };
-  };
-
-  // =========================================================
-  // RESOLVE LOCATION PREVIEW
-  // =========================================================
-
-  const resolveLocation = async () => {
-    if (!location.trim()) {
-      alert("Please enter an address or location first.");
-      return;
-    }
-
-    if (!LOCATION_API_KEY) {
-      alert("Amazon Location API key is not configured.");
-      return;
-    }
-
-    setIsResolvingLocation(true);
-
-    try {
-      const place = await searchLocation(location.trim());
-
-      setResolvedPlace({
-        locationName: place.locationName,
-        addressLabel: place.addressLabel,
-        latitude: place.latitude,
-        longitude: place.longitude,
-      });
-
-      if (mapRef.current) {
-        mapRef.current.flyTo({
-          center: [place.longitude, place.latitude],
-          zoom: 13,
-          essential: true,
-        });
-
-        const maplibregl = (window as any).maplibregl;
-
-        if (maplibregl) {
-          if (locationPreviewMarkerRef.current) {
-            locationPreviewMarkerRef.current.remove();
-          }
-
-          locationPreviewMarkerRef.current = new maplibregl.Marker({
-            color: "#38bdf8",
-          })
-            .setLngLat([place.longitude, place.latitude])
-            .setPopup(
-              new maplibregl.Popup({ offset: 25 }).setHTML(`
-                <strong>Selected Location</strong>
-                <br/>
-                ${place.addressLabel}
-              `)
-            )
-            .addTo(mapRef.current);
-        }
-      }
-    } catch (error) {
-      console.error("Location resolution error:", error);
-      setResolvedPlace(null);
-      alert(
-        error instanceof Error
-          ? error.message
-          : "Could not resolve this location."
-      );
-    } finally {
-      setIsResolvingLocation(false);
-    }
   };
 
   // =========================================================
@@ -420,11 +332,6 @@ function App() {
       return;
     }
 
-    if (hazardType === "Other" && !customHazardType.trim()) {
-      alert("Please specify the hazard type.");
-      return;
-    }
-
     if (!LOCATION_API_KEY) {
       alert(
         "Amazon Location API key is not configured."
@@ -436,11 +343,12 @@ function App() {
 
     try {
       // -----------------------------------------------------
-      // STEP 1: USE RESOLVED LOCATION OR FIND IT
+      // STEP 1: FIND LOCATION USING AMAZON LOCATION
       // -----------------------------------------------------
 
-      const place = resolvedPlace ||
-        (await searchLocation(location.trim()));
+      const place = await searchLocation(
+        location.trim()
+      );
 
       console.log("Found location:", place);
 
@@ -491,10 +399,7 @@ function App() {
           },
 
           body: JSON.stringify({
-            hazardType:
-              hazardType === "Other"
-                ? customHazardType.trim()
-                : hazardType,
+            hazardType: hazardType,
             description: description,
 
             // Real location name
@@ -537,13 +442,7 @@ function App() {
 
       // Clear form
       setHazardType("High Waves");
-      setCustomHazardType("");
       setLocation("");
-      setResolvedPlace(null);
-      if (locationPreviewMarkerRef.current) {
-        locationPreviewMarkerRef.current.remove();
-        locationPreviewMarkerRef.current = null;
-      }
       setDescription("");
       setPhotoFile(null);
 
@@ -1238,13 +1137,11 @@ function App() {
 
             <select
               value={hazardType}
-              onChange={(e) => {
-                const value = e.target.value;
-                setHazardType(value);
-                if (value !== "Other") {
-                  setCustomHazardType("");
-                }
-              }}
+              onChange={(e) =>
+                setHazardType(
+                  e.target.value
+                )
+              }
             >
 
               <option>
@@ -1269,90 +1166,22 @@ function App() {
 
             </select>
 
-            {hazardType === "Other" && (
-              <>
-                <label>
-                  Specify Hazard Type *
-                </label>
-
-                <input
-                  type="text"
-                  placeholder="e.g. Oil Spill, Tsunami, Marine Debris"
-                  value={customHazardType}
-                  onChange={(e) =>
-                    setCustomHazardType(e.target.value)
-                  }
-                />
-              </>
-            )}
-
             {/* LOCATION */}
 
             <label>
-              LOCATION / ADDRESS *
+              Location
             </label>
 
-            <div
-              style={{
-                display: "flex",
-                gap: "8px",
-                alignItems: "stretch",
-              }}
-            >
-              <input
-                type="text"
-                placeholder="e.g. Marina Beach, Chennai, Tamil Nadu"
-                value={location}
-                onChange={(e) => {
-                  setLocation(e.target.value);
-                  setResolvedPlace(null);
-                }}
-                style={{ flex: 1 }}
-              />
-
-              <button
-                type="button"
-                className="secondary-button"
-                onClick={resolveLocation}
-                disabled={isResolvingLocation}
-                style={{
-                  whiteSpace: "nowrap",
-                  padding: "0 14px",
-                }}
-              >
-                {isResolvingLocation
-                  ? "Resolving..."
-                  : "📍 Resolve"}
-              </button>
-            </div>
-
-            {resolvedPlace && (
-              <div
-                style={{
-                  marginTop: "10px",
-                  marginBottom: "16px",
-                  padding: "12px 14px",
-                  border: "1px solid rgba(56, 189, 248, 0.35)",
-                  borderRadius: "10px",
-                  background: "rgba(14, 165, 233, 0.08)",
-                  color: "#cbd5e1",
-                  fontSize: "13px",
-                  lineHeight: 1.5,
-                }}
-              >
-                <strong style={{ color: "#38bdf8" }}>
-                  ✓ Location Resolved
-                </strong>
-                <br />
-                <strong>{resolvedPlace.locationName}</strong>
-                <br />
-                {resolvedPlace.addressLabel}
-                <br />
-                <span style={{ opacity: 0.75 }}>
-                  Coordinates: {resolvedPlace.latitude.toFixed(5)}, {resolvedPlace.longitude.toFixed(5)}
-                </span>
-              </div>
-            )}
+            <input
+              type="text"
+              placeholder="Enter Indian location e.g. Dindigul"
+              value={location}
+              onChange={(e) =>
+                setLocation(
+                  e.target.value
+                )
+              }
+            />
 
             {/* DESCRIPTION */}
 
