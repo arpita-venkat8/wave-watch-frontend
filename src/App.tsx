@@ -541,76 +541,33 @@ function App() {
 
         </div>
 
-        <div className="hero-visual radar-visual">
+        <div className="hero-visual">
 
-          <div className="command-visual">
+          <div className="ocean-circle">
 
-            <div className="visual-topbar">
-              <div>
-                <span className="visual-kicker">LIVE COASTAL INTELLIGENCE</span>
-                <strong>INDIA COASTAL NETWORK</strong>
-              </div>
-              <span className="visual-live"><i></i> MONITORING</span>
+            <div className="wave wave-one"></div>
+            <div className="wave wave-two"></div>
+            <div className="wave wave-three"></div>
+
+            <div className="location-pin">
+              📍
             </div>
 
-            <div className="coast-grid">
-              <div className="grid-lines"></div>
+          </div>
 
-              <div className="coast-outline coast-one"></div>
-              <div className="coast-outline coast-two"></div>
+          <div className="floating-card">
 
-              <div className="route-line route-line-one">
-                <span className="route-dot route-dot-one"></span>
-              </div>
-              <div className="route-line route-line-two">
-                <span className="route-dot route-dot-two"></span>
-              </div>
-              <div className="route-line route-line-three">
-                <span className="route-dot route-dot-three"></span>
-              </div>
+            <span className="small-label">
+              ACTIVE ALERT
+            </span>
 
-              <div className="monitor-node monitor-node-one">
-                <span></span>
-              </div>
-              <div className="monitor-node monitor-node-two">
-                <span></span>
-              </div>
-              <div className="monitor-node monitor-node-three hazard-node">
-                <span></span>
-              </div>
+            <strong>
+              High Wave Activity
+            </strong>
 
-              <div className="scan-sweep"></div>
-
-              <div className="location-tag tag-one">
-                <span>MONITORED</span>
-                <strong>CHENNAI COAST</strong>
-              </div>
-
-              <div className="location-tag tag-two">
-                <span>ALERT</span>
-                <strong>HIGH WAVE</strong>
-              </div>
-
-              <div className="network-center">
-                <div className="network-ring"></div>
-                <div className="network-core">WW</div>
-              </div>
-            </div>
-
-            <div className="visual-footer">
-              <div>
-                <span>NETWORK STATUS</span>
-                <strong>All monitoring services operational</strong>
-              </div>
-              <div className="visual-metric">
-                <span>REGION</span>
-                <strong>INDIA</strong>
-              </div>
-              <div className="visual-metric">
-                <span>DATA FLOW</span>
-                <strong>REAL-TIME</strong>
-              </div>
-            </div>
+            <span>
+              📍 Marina Beach
+            </span>
 
           </div>
 
