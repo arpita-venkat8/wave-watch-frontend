@@ -1,1629 +1,1901 @@
-/* =========================================
-   WAVE WATCH
-   ========================================= */
+import { useEffect, useMemo, useRef, useState } from "react";
+import "./App.css";
 
-* {
-  box-sizing: border-box;
-}
+type Severity = "HIGH" | "MEDIUM" | "LOW";
 
-body {
-  margin: 0;
-}
+type BackendReport = {
+  reportId: string;
+  hazardType: string;
+  description: string;
+  location?: string;
+  latitude: number;
+  longitude: number;
+  timestamp: string;
+  severity: Severity;
+  status: string;
+  photoKey?: string;
+  sentiment?: string;
+  sentimentScore?: number;
+  keyPhrases?: {
+    text: string;
+    score: number;
+  }[];
+};
 
-.app {
-  min-height: 100vh;
-  background:
-    radial-gradient(
-      circle at 10% 10%,
-      rgba(14, 165, 233, 0.12),
-      transparent 30%
-    ),
-    radial-gradient(
-      circle at 90% 20%,
-      rgba(37, 99, 235, 0.12),
-      transparent 30%
-    ),
-    #06111f;
+const API_URL =
+  "https://cw6ehoudu9.execute-api.ap-southeast-2.amazonaws.com/reports";
 
-  color: #f8fafc;
-  font-family:
-    Inter,
-    system-ui,
-    -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    sans-serif;
-}
+const AWS_REGION = "ap-southeast-2";
+const MAP_STYLE = "Standard";
 
-/* =========================================
-   NAVBAR
-   ========================================= */
+const HAZARD_TYPES = [
+  "High Waves",
+  "Rip Current",
+  "Coastal Flooding",
+  "Beach Erosion",
+  "Strong Winds",
+  "Storm Surge",
+  "Tsunami Warning",
+  "Marine Pollution",
+  "Other",
+];
 
-.navbar {
-  height: 80px;
-  padding: 0 7%;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+function App() {
+  const LOCATION_API_KEY =
+    import.meta.env.VITE_LOCATION_API_KEY as string;
 
-  border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+  /* =========================================================
+     UI STATE
+  ========================================================= */
 
-  background: rgba(6, 17, 31, 0.8);
-  backdrop-filter: blur(15px);
-}
+  const [showModal, setShowModal] = useState(false);
+  const [isMapExpanded, setIsMapExpanded] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-.logo {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
+  /* =========================================================
+     FORM STATE
+  ========================================================= */
 
-.logo-icon {
-  font-size: 30px;
-}
+  const [hazardType, setHazardType] =
+    useState("High Waves");
 
-.logo h2 {
-  margin: 0;
-  font-size: 17px;
-  letter-spacing: 2px;
-}
+  const [location, setLocation] = useState("");
 
-.logo span:last-child {
-  color: #64748b;
-  font-size: 11px;
-}
+  const [description, setDescription] =
+    useState("");
 
-.nav-status {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  const [photoFile, setPhotoFile] =
+    useState<File | null>(null);
 
-  padding: 8px 14px;
+  /* =========================================================
+     BACKEND STATE
+  ========================================================= */
 
-  border: 1px solid rgba(34, 197, 94, 0.25);
-  border-radius: 20px;
+  const [backendReports, setBackendReports] =
+    useState<BackendReport[]>([]);
 
-  background: rgba(34, 197, 94, 0.08);
+  /* =========================================================
+     MAP STATE
+  ========================================================= */
 
-  color: #86efac;
-  font-size: 13px;
-  font-weight: 700;
-}
+  const mapContainerRef =
+    useRef<HTMLDivElement | null>(null);
 
-.live-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #22c55e;
-  box-shadow: 0 0 12px #22c55e;
-}
+  const mapRef = useRef<any>(null);
 
-/* =========================================
-   HERO
-   ========================================= */
+  const markersRef =
+    useRef<any[]>([]);
 
-.hero {
-  min-height: 620px;
-  padding: 90px 7%;
+  const [mapReady, setMapReady] =
+    useState(false);
 
-  display: grid;
-  grid-template-columns: 1.1fr 0.9fr;
-  gap: 60px;
-  align-items: center;
-}
+  /* =========================================================
+     INITIALIZE AMAZON LOCATION MAP
+  ========================================================= */
 
-.hero-badge {
-  display: inline-block;
+  useEffect(() => {
+    const maplibregl = (window as any).maplibregl;
 
-  padding: 8px 14px;
+    if (
+      !mapContainerRef.current ||
+      !LOCATION_API_KEY ||
+      !maplibregl
+    ) {
+      return;
+    }
 
-  border: 1px solid rgba(56, 189, 248, 0.25);
-  border-radius: 20px;
+    const styleUrl =
+      `https://maps.geo.${AWS_REGION}.amazonaws.com/v2/styles/` +
+      `${MAP_STYLE}/descriptor?key=${encodeURIComponent(
+        LOCATION_API_KEY
+      )}`;
 
-  background: rgba(14, 165, 233, 0.08);
+    const map = new maplibregl.Map({
+      container: mapContainerRef.current,
+      style: styleUrl,
+      center: [78.9629, 20.5937],
+      zoom: 4.5,
+    });
 
-  color: #38bdf8;
-  font-size: 12px;
-  font-weight: 800;
-  letter-spacing: 1.5px;
-}
-
-.hero h1 {
-  margin: 25px 0;
-
-  font-size: clamp(48px, 6vw, 76px);
-  line-height: 1.02;
-  letter-spacing: -3px;
-}
-
-.hero h1 span {
-  color: #38bdf8;
-}
-
-.hero p {
-  max-width: 600px;
-
-  color: #94a3b8;
-
-  font-size: 18px;
-  line-height: 1.7;
-}
-
-.hero-buttons {
-  display: flex;
-  gap: 15px;
-  margin-top: 30px;
-}
-
-.primary-button,
-.secondary-button {
-  padding: 14px 22px;
-
-  border-radius: 12px;
-
-  font-size: 14px;
-  font-weight: 800;
-
-  cursor: pointer;
-}
-
-.primary-button {
-  border: none;
-
-  background: linear-gradient(
-    135deg,
-    #0ea5e9,
-    #2563eb
-  );
-
-  color: white;
-
-  box-shadow:
-    0 10px 30px rgba(14, 165, 233, 0.25);
-
-  transition: 0.25s;
-}
-
-.primary-button:hover {
-  transform: translateY(-3px);
-
-  box-shadow:
-    0 15px 35px rgba(14, 165, 233, 0.4);
-}
-
-.secondary-button {
-  border: 1px solid rgba(148, 163, 184, 0.2);
-
-  background: rgba(15, 30, 48, 0.6);
-
-  color: #e2e8f0;
-}
-
-.primary-button.small {
-  padding: 11px 18px;
-}
-
-/* =========================================
-   HERO VISUAL
-   ========================================= */
-
-.hero-visual {
-  position: relative;
-
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  min-height: 420px;
-}
-
-.ocean-circle {
-  width: 330px;
-  height: 330px;
-
-  position: relative;
-
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  overflow: hidden;
-
-  border-radius: 50%;
-
-  background:
-    radial-gradient(
-      circle,
-      #0ea5e9,
-      #075985 45%,
-      #082f49 70%,
-      #06111f
+    map.addControl(
+      new maplibregl.NavigationControl(),
+      "top-right"
     );
 
-  box-shadow:
-    0 0 80px rgba(14, 165, 233, 0.25);
-}
+    map.on("load", () => {
+      setMapReady(true);
+    });
 
-.wave {
-  position: absolute;
+    mapRef.current = map;
 
-  width: 500px;
-  height: 150px;
+    return () => {
+      markersRef.current.forEach((marker) =>
+        marker.remove()
+      );
 
-  border: 3px solid rgba(255, 255, 255, 0.18);
+      markersRef.current = [];
 
-  border-radius: 50%;
-}
+      map.remove();
 
-.wave-one {
-  transform: rotate(-15deg);
-}
+      mapRef.current = null;
 
-.wave-two {
-  transform: rotate(10deg);
-}
+      setMapReady(false);
+    };
+  }, [LOCATION_API_KEY]);
 
-.wave-three {
-  transform: rotate(30deg);
-}
+  /* =========================================================
+     RESIZE MAP
+  ========================================================= */
 
-.location-pin {
-  z-index: 3;
+  useEffect(() => {
+    if (!mapRef.current) return;
 
-  font-size: 60px;
+    const frame = requestAnimationFrame(() => {
+      mapRef.current.resize();
+    });
 
-  filter: drop-shadow(
-    0 10px 15px rgba(0, 0, 0, 0.3)
-  );
-}
+    return () => cancelAnimationFrame(frame);
+  }, [isMapExpanded]);
 
-.floating-card {
-  position: absolute;
+  /* =========================================================
+     ADD BACKEND REPORT MARKERS
+  ========================================================= */
 
-  right: 0;
-  bottom: 40px;
+  useEffect(() => {
+    if (!mapRef.current || !mapReady) return;
 
-  width: 210px;
+    const maplibregl = (window as any).maplibregl;
 
-  padding: 18px;
+    if (!maplibregl) return;
 
-  border: 1px solid rgba(56, 189, 248, 0.25);
-  border-radius: 15px;
-
-  background: rgba(8, 25, 43, 0.85);
-  backdrop-filter: blur(15px);
-
-  box-shadow:
-    0 20px 50px rgba(0, 0, 0, 0.3);
-}
-
-.small-label {
-  display: block;
-
-  margin-bottom: 7px;
-
-  color: #f87171;
-
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 1px;
-}
-
-.floating-card strong {
-  display: block;
-
-  margin-bottom: 7px;
-
-  font-size: 15px;
-}
-
-.floating-card span:last-child {
-  color: #94a3b8;
-  font-size: 12px;
-}
-
-/* =========================================
-   STATISTICS
-   ========================================= */
-
-.stats {
-  padding: 0 7% 70px;
-
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-
-  gap: 18px;
-}
-
-.stat-card {
-  padding: 24px;
-
-  display: flex;
-  align-items: center;
-  gap: 15px;
-
-  border: 1px solid rgba(148, 163, 184, 0.12);
-  border-radius: 18px;
-
-  background: rgba(15, 30, 48, 0.65);
-
-  backdrop-filter: blur(12px);
-}
-
-.stat-icon {
-  width: 50px;
-  height: 50px;
-
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  border-radius: 13px;
-
-  font-size: 21px;
-}
-
-.stat-icon.red {
-  background: rgba(239, 68, 68, 0.12);
-}
-
-.stat-icon.orange {
-  background: rgba(249, 115, 22, 0.12);
-}
-
-.stat-icon.green {
-  background: rgba(34, 197, 94, 0.12);
-}
-
-.stat-icon.blue {
-  background: rgba(14, 165, 233, 0.12);
-}
-
-.stat-card span {
-  display: block;
-
-  margin-bottom: 5px;
-
-  color: #64748b;
-
-  font-size: 12px;
-}
-
-.stat-card strong {
-  font-size: 27px;
-}
-
-/* =========================================
-   COMMON SECTIONS
-   ========================================= */
-
-.monitoring,
-.reports {
-  padding: 70px 7%;
-}
-
-.section-heading {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-
-  margin-bottom: 30px;
-}
-
-.section-tag {
-  color: #38bdf8;
-
-  font-size: 11px;
-  font-weight: 800;
-
-  letter-spacing: 2px;
-}
-
-.section-heading h2 {
-  margin: 8px 0;
-
-  font-size: 34px;
-
-  letter-spacing: -1px;
-}
-
-.section-heading p {
-  margin: 0;
-
-  color: #64748b;
-}
-
-.live-status {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-
-  padding: 8px 13px;
-
-  border-radius: 20px;
-
-  background: rgba(34, 197, 94, 0.08);
-
-  color: #86efac;
-
-  font-size: 11px;
-  font-weight: 800;
-}
-
-.live-status span {
-  width: 7px;
-  height: 7px;
-
-  border-radius: 50%;
-
-  background: #22c55e;
-}
-
-/* =========================================
-   MONITORING GRID
-   ========================================= */
-
-.monitor-grid {
-  display: grid;
-
-  grid-template-columns: 1.5fr 0.8fr;
-
-  gap: 20px;
-}
-
-.map-card,
-.alert-card {
-  padding: 25px;
-
-  border: 1px solid rgba(148, 163, 184, 0.12);
-  border-radius: 20px;
-
-  background: rgba(15, 30, 48, 0.65);
-
-  backdrop-filter: blur(12px);
-}
-
-.map-header,
-.alert-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-
-  margin-bottom: 20px;
-}
-
-.map-header h3,
-.alert-header h3 {
-  margin: 0 0 5px;
-
-  font-size: 18px;
-}
-
-.map-header span {
-  color: #64748b;
-  font-size: 12px;
-}
-
-.map-button {
-  padding: 8px 12px;
-
-  border: 1px solid rgba(148, 163, 184, 0.15);
-  border-radius: 8px;
-
-  background: transparent;
-
-  color: #94a3b8;
-
-  font-size: 11px;
-}
-
-/* =========================================
-   MAP
-   ========================================= */
-
-.fake-map {
-  height: 330px;
-
-  position: relative;
-
-  overflow: hidden;
-
-  border-radius: 15px;
-
-  background:
-    linear-gradient(
-      120deg,
-      #092a42,
-      #06385c,
-      #0b263e
-    );
-}
-
-.map-grid {
-  position: absolute;
-  inset: 0;
-
-  opacity: 0.2;
-
-  background-image:
-    linear-gradient(
-      rgba(255, 255, 255, 0.15) 1px,
-      transparent 1px
-    ),
-    linear-gradient(
-      90deg,
-      rgba(255, 255, 255, 0.15) 1px,
-      transparent 1px
+    markersRef.current.forEach((marker) =>
+      marker.remove()
     );
 
-  background-size: 45px 45px;
-}
-
-.coastline {
-  position: absolute;
-
-  width: 110%;
-  height: 150%;
-
-  right: -40%;
-  top: -20%;
-
-  background: #dbeafe;
-
-  border-radius: 45% 0 0 55%;
-
-  transform: rotate(-20deg);
-
-  opacity: 0.9;
-}
-
-.map-marker {
-  position: absolute;
-
-  width: 18px;
-  height: 18px;
-
-  border-radius: 50%;
-
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  z-index: 3;
-}
-
-.map-marker span {
-  width: 7px;
-  height: 7px;
-
-  border-radius: 50%;
-
-  background: white;
-}
-
-.marker-one {
-  left: 42%;
-  top: 25%;
-
-  background: #ef4444;
-
-  box-shadow:
-    0 0 0 8px rgba(239, 68, 68, 0.2),
-    0 0 20px #ef4444;
-}
-
-.marker-two {
-  left: 54%;
-  top: 48%;
-
-  background: #f97316;
-
-  box-shadow:
-    0 0 0 8px rgba(249, 115, 22, 0.2),
-    0 0 20px #f97316;
-}
-
-.marker-three {
-  left: 63%;
-  top: 70%;
-
-  background: #22c55e;
-
-  box-shadow:
-    0 0 0 8px rgba(34, 197, 94, 0.2),
-    0 0 20px #22c55e;
-}
-
-.map-label {
-  position: absolute;
-
-  z-index: 4;
-
-  padding: 5px 8px;
-
-  border-radius: 6px;
-
-  background: rgba(6, 17, 31, 0.8);
-
-  color: #e2e8f0;
-
-  font-size: 9px;
-}
-
-.label-one {
-  left: 45%;
-  top: 18%;
-}
-
-.label-two {
-  left: 57%;
-  top: 42%;
-}
-
-.label-three {
-  left: 66%;
-  top: 64%;
-}
-
-.map-center {
-  position: absolute;
-
-  left: 50%;
-  top: 50%;
-
-  transform: translate(-50%, -50%);
-
-  z-index: 2;
-
-  font-size: 30px;
-
-  opacity: 0.4;
-}
-
-.map-legend {
-  display: flex;
-
-  gap: 20px;
-
-  margin-top: 15px;
-}
-
-.map-legend span {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-
-  color: #64748b;
-
-  font-size: 11px;
-}
-
-.map-legend i {
-  width: 7px;
-  height: 7px;
-
-  border-radius: 50%;
-}
-
-.legend-red {
-  background: #ef4444;
-}
-
-.legend-orange {
-  background: #f97316;
-}
-
-.legend-green {
-  background: #22c55e;
-}
-
-/* =========================================
-   ALERTS
-   ========================================= */
-
-.alert-count {
-  width: 28px;
-  height: 28px;
-
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  border-radius: 8px;
-
-  background: rgba(239, 68, 68, 0.12);
-
-  color: #f87171;
-
-  font-size: 12px;
-  font-weight: 800;
-}
-
-.alert-item {
-  display: flex;
-  gap: 13px;
-
-  padding: 17px 0;
-
-  border-bottom: 1px solid rgba(148, 163, 184, 0.1);
-}
-
-.alert-item:last-child {
-  border-bottom: none;
-}
-
-.alert-icon {
-  width: 40px;
-  height: 40px;
-
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  border-radius: 10px;
-
-  background: rgba(14, 165, 233, 0.08);
-}
-
-.alert-item strong,
-.alert-item span,
-.alert-item small {
-  display: block;
-}
-
-.alert-item strong {
-  font-size: 13px;
-}
-
-.alert-item span {
-  margin-top: 4px;
-
-  color: #94a3b8;
-
-  font-size: 11px;
-}
-
-.alert-item small {
-  margin-top: 5px;
-
-  color: #475569;
-
-  font-size: 10px;
-}
-
-/* =========================================
-   REPORTS TABLE
-   ========================================= */
-
-.reports-table {
-  overflow: hidden;
-
-  border: 1px solid rgba(148, 163, 184, 0.12);
-  border-radius: 18px;
-
-  background: rgba(15, 30, 48, 0.65);
-}
-
-.table-header,
-.report-row {
-  display: grid;
-
-  grid-template-columns:
-    1.5fr
-    1.2fr
-    0.8fr
-    1fr
-    0.7fr;
-
-  align-items: center;
-
-  gap: 20px;
-
-  padding: 18px 22px;
-}
-
-.table-header {
-  background: rgba(255, 255, 255, 0.025);
-
-  color: #475569;
-
-  font-size: 10px;
-  font-weight: 800;
-
-  letter-spacing: 1px;
-}
-
-.report-row {
-  border-top: 1px solid rgba(148, 163, 184, 0.08);
-}
-
-.hazard-name {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.report-icon {
-  width: 35px;
-  height: 35px;
-
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  border-radius: 9px;
-
-  background: rgba(14, 165, 233, 0.08);
-}
-
-.hazard-name strong {
-  font-size: 13px;
-}
-
-.location,
-.time {
-  color: #94a3b8;
-
-  font-size: 11px;
-}
-
-.severity,
-.report-status {
-  width: fit-content;
-
-  padding: 5px 9px;
-
-  border-radius: 20px;
-
-  font-size: 10px;
-  font-weight: 800;
-}
-
-.severity.high {
-  background: rgba(239, 68, 68, 0.1);
-  color: #f87171;
-}
-
-.severity.medium {
-  background: rgba(249, 115, 22, 0.1);
-  color: #fb923c;
-}
-
-.severity.low {
-  background: rgba(34, 197, 94, 0.1);
-  color: #4ade80;
-}
-
-.report-status.active {
-  background: rgba(239, 68, 68, 0.08);
-  color: #f87171;
-}
-
-.report-status.under-review {
-  background: rgba(249, 115, 22, 0.08);
-  color: #fb923c;
-}
-
-.report-status.resolved {
-  background: rgba(34, 197, 94, 0.08);
-  color: #4ade80;
-}
-
-/* =========================================
-   AWS SECTION
-   ========================================= */
-
-.aws-section {
-  padding: 80px 7%;
-
-  border-top: 1px solid rgba(148, 163, 184, 0.08);
-  border-bottom: 1px solid rgba(148, 163, 184, 0.08);
-
-  background: rgba(8, 47, 73, 0.15);
-}
-
-.center {
-  display: block;
-
-  text-align: center;
-}
-
-.aws-services {
-  max-width: 900px;
-
-  margin: 40px auto 0;
-
-  display: grid;
-
-  grid-template-columns: repeat(6, 1fr);
-
-  gap: 12px;
-}
-
-.aws-services div {
-  padding: 18px 10px;
-
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-
-  border: 1px solid rgba(148, 163, 184, 0.1);
-  border-radius: 12px;
-
-  background: rgba(15, 30, 48, 0.5);
-}
-
-.aws-services strong {
-  color: #38bdf8;
-
-  font-size: 20px;
-}
-
-.aws-services span {
-  color: #94a3b8;
-
-  font-size: 10px;
-}
-
-/* =========================================
-   FOOTER
-   ========================================= */
-
-footer {
-  padding: 30px 7%;
-
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-
-  color: #475569;
-
-  font-size: 11px;
-}
-
-.footer-logo {
-  color: #38bdf8;
-
-  font-weight: 800;
-  letter-spacing: 1px;
-}
-
-/* =========================================
-   MODAL
-   ========================================= */
-
-.modal-overlay {
-  position: fixed;
-
-  inset: 0;
-
-  z-index: 100;
-
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  padding: 20px;
-
-  background: rgba(2, 6, 23, 0.8);
-
-  backdrop-filter: blur(8px);
-}
-
-.modal {
-  width: min(500px, 100%);
-
-  position: relative;
-
-  padding: 30px;
-
-  border: 1px solid rgba(56, 189, 248, 0.2);
-  border-radius: 20px;
-
-  background: #0b1b30;
-
-  box-shadow:
-    0 30px 80px rgba(0, 0, 0, 0.5);
-}
-
-.close-button {
-  position: absolute;
-
-  right: 18px;
-  top: 15px;
-
-  border: none;
-
-  background: transparent;
-
-  color: #64748b;
-
-  font-size: 25px;
-
-  cursor: pointer;
-}
-
-.modal-icon {
-  font-size: 35px;
-}
-
-.modal h2 {
-  margin: 10px 0;
-
-  font-size: 26px;
-}
-
-.modal p {
-  color: #64748b;
-
-  font-size: 13px;
-  line-height: 1.6;
-}
-
-.modal label {
-  display: block;
-
-  margin-top: 18px;
-  margin-bottom: 7px;
-
-  color: #cbd5e1;
-
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.modal input,
-.modal textarea,
-.modal select {
-  width: 100%;
-
-  padding: 12px;
-
-  border: 1px solid rgba(148, 163, 184, 0.15);
-  border-radius: 9px;
-
-  outline: none;
-
-  background: #06111f;
-
-  color: #f8fafc;
-
-  font-size: 13px;
-}
-
-.modal textarea {
-  resize: vertical;
-}
-
-.modal input:focus,
-.modal textarea:focus,
-.modal select:focus {
-  border-color: #0ea5e9;
-}
-
-.submit {
-  width: 100%;
-
-  margin-top: 22px;
-}
-
-/* =========================================
-   MOBILE
-   ========================================= */
-
-@media (max-width: 900px) {
-
-  .hero {
-    grid-template-columns: 1fr;
-
-    padding-top: 60px;
-  }
-
-  .hero-visual {
-    min-height: 350px;
-  }
-
-  .stats {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  .monitor-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .aws-services {
-    grid-template-columns: repeat(3, 1fr);
-  }
-
-  .table-header {
-    display: none;
-  }
-
-  .report-row {
-    grid-template-columns: 1fr 1fr;
-  }
-}
-
-@media (max-width: 600px) {
-
-  .navbar {
-    padding: 0 20px;
-  }
-
-  .nav-status {
-    display: none;
-  }
-
-  .hero {
-    padding: 55px 20px;
-  }
-
-  .hero h1 {
-    font-size: 48px;
-  }
-
-  .hero-buttons {
-    flex-direction: column;
-  }
-
-  .hero-buttons button {
-    width: 100%;
-  }
-
-  .stats {
-    padding: 0 20px 50px;
-
-    grid-template-columns: 1fr;
-  }
-
-  .monitoring,
-  .reports {
-    padding: 50px 20px;
-  }
-
-  .section-heading {
-    align-items: flex-start;
-
-    flex-direction: column;
-
-    gap: 15px;
-  }
-
-  .fake-map {
-    height: 260px;
-  }
-
-  .aws-section {
-    padding: 60px 20px;
-  }
-
-  .aws-services {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  footer {
-    padding: 25px 20px;
-
-    flex-direction: column;
-
-    gap: 10px;
-  }
-
-  .report-row {
-    grid-template-columns: 1fr;
-
-    gap: 10px;
-  }
-
-  .floating-card {
-    right: 5px;
-  }
-
-  .ocean-circle {
-    width: 270px;
-    height: 270px;
-  }
-/* =========================================
-   REAL AMAZON LOCATION MAP
-   ========================================= */
-
-.real-map {
-  width: 100%;
-  height: 330px;
-  position: relative;
-  overflow: hidden;
-  border-radius: 15px;
-}
-
-.real-map .maplibregl-map {
-  width: 100%;
-  height: 100%;
-}
-
-.real-map .maplibregl-ctrl-group {
-  background: rgba(6, 17, 31, 0.9);
-  border: 1px solid rgba(148, 163, 184, 0.2);
-  border-radius: 10px;
-  overflow: hidden;
-}
-
-.real-map .maplibregl-ctrl-group button {
-  margin: 0;
-  width: 30px;
-  height: 30px;
-  background-color: transparent;
-}
-
-.real-map .maplibregl-ctrl-group button:hover {
-  background-color: rgba(56, 189, 248, 0.15);
-}
-
-.map-card.expanded {
-  position: fixed;
-  inset: 20px;
-  z-index: 9999;
-  padding: 25px;
-  background: #0b1b30;
-  border: 1px solid rgba(56, 189, 248, 0.25);
-  box-shadow: 0 30px 100px rgba(0, 0, 0, 0.7);
-}
-
-.map-card.expanded .real-map {
-  height: calc(100vh - 150px);
-}
-
-.map-button {
-  cursor: pointer;
-  transition: 0.2s ease;
-}
-
-.map-button:hover {
-  border-color: rgba(56, 189, 248, 0.5);
-  color: #38bdf8;
-}
-
-@media (max-width: 600px) {
-  .real-map {
-    height: 260px;
-  }
-
-  .map-card.expanded {
-    inset: 10px;
-    padding: 15px;
-  }
-
-  .map-card.expanded .real-map {
-    height: calc(100vh - 120px);
-  }
-}
-
-
-/* =========================================
-   WAVE WATCH HERO ANIMATION Ã¢â‚¬â€ FINAL
-   ========================================= */
-.hero-visual::before,.hero-visual::after{content:"";position:absolute;left:50%;top:50%;border-radius:50%;pointer-events:none;transform:translate(-50%,-50%)}
-.hero-visual::before{width:390px;height:390px;border:1px solid rgba(56,189,248,.22);box-shadow:0 0 35px rgba(14,165,233,.12),inset 0 0 35px rgba(14,165,233,.05);animation:heroRadarPulse 3s ease-in-out infinite}
-.hero-visual::after{width:450px;height:450px;border:1px dashed rgba(56,189,248,.12);animation:heroRadarSpin 14s linear infinite}
-.ocean-circle{z-index:2;animation:oceanPulse 3s ease-in-out infinite}
-.wave-one{animation:waveMoveOne 4s ease-in-out infinite}.wave-two{animation:waveMoveTwo 5s ease-in-out infinite}.wave-three{animation:waveMoveThree 6s ease-in-out infinite}
-.location-pin{animation:locationPulse 1.8s ease-in-out infinite}.floating-card{z-index:4;animation:alertFloat 3.2s ease-in-out infinite}.small-label{animation:alertBlink 1.8s ease-in-out infinite}
-@keyframes heroRadarPulse{0%,100%{opacity:.35;transform:translate(-50%,-50%) scale(.94)}50%{opacity:1;transform:translate(-50%,-50%) scale(1.04)}}
-@keyframes heroRadarSpin{from{transform:translate(-50%,-50%) rotate(0deg)}to{transform:translate(-50%,-50%) rotate(360deg)}}
-@keyframes oceanPulse{0%,100%{box-shadow:0 0 60px rgba(14,165,233,.22),0 0 100px rgba(14,165,233,.05)}50%{box-shadow:0 0 95px rgba(14,165,233,.42),0 0 145px rgba(14,165,233,.12)}}
-@keyframes waveMoveOne{0%,100%{transform:rotate(-15deg) translateX(-18px) scale(.98);opacity:.55}50%{transform:rotate(-15deg) translateX(18px) scale(1.03);opacity:1}}
-@keyframes waveMoveTwo{0%,100%{transform:rotate(10deg) translateX(18px) scale(1.02);opacity:.45}50%{transform:rotate(10deg) translateX(-18px) scale(.97);opacity:.9}}
-@keyframes waveMoveThree{0%,100%{transform:rotate(30deg) translateX(-14px);opacity:.4}50%{transform:rotate(30deg) translateX(14px);opacity:.85}}
-@keyframes locationPulse{0%,100%{transform:translateY(0) scale(1);filter:drop-shadow(0 10px 15px rgba(0,0,0,.3))}50%{transform:translateY(-10px) scale(1.08);filter:drop-shadow(0 10px 15px rgba(0,0,0,.3)) drop-shadow(0 0 18px rgba(248,113,113,.65))}}
-@keyframes alertFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
-@keyframes alertBlink{0%,100%{opacity:1;text-shadow:0 0 0 rgba(248,113,113,0)}50%{opacity:.65;text-shadow:0 0 12px rgba(248,113,113,.65)}}
-@media (prefers-reduced-motion:reduce){.hero-visual::before,.hero-visual::after,.ocean-circle,.wave-one,.wave-two,.wave-three,.location-pin,.floating-card,.small-label{animation:none!important}}
-/* =========================================================
-   PROFESSIONAL UI POLISH â€” VISUAL ONLY
-   No application logic or backend behavior is changed.
-   ========================================================= */
-
-:root {
-  --ww-bg: #071321;
-  --ww-panel: rgba(13, 29, 47, 0.86);
-  --ww-panel-solid: #0c1c2e;
-  --ww-border: rgba(148, 163, 184, 0.16);
-  --ww-border-strong: rgba(56, 189, 248, 0.28);
-  --ww-text: #f8fafc;
-  --ww-muted: #8ea0b5;
-  --ww-accent: #38bdf8;
-  --ww-accent-2: #2563eb;
-}
-
-html {
-  scroll-behavior: smooth;
-}
-
-body {
-  background: var(--ww-bg);
-  color: var(--ww-text);
-  -webkit-font-smoothing: antialiased;
-  text-rendering: optimizeLegibility;
-}
-
-button,
-input,
-textarea,
-select {
-  font-family: inherit;
-}
-
-/* Navbar */
-.navbar {
-  position: sticky;
-  top: 0;
-  z-index: 50;
-  height: 72px;
-  padding: 0 clamp(20px, 5vw, 7%);
-  background: rgba(5, 15, 27, 0.88);
-  border-bottom: 1px solid rgba(148, 163, 184, 0.14);
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.16);
-}
-
-/* Hero */
-.hero {
-  position: relative;
-  min-height: 600px;
-  padding: 82px clamp(20px, 7vw, 7%);
-}
-
-.hero h1 {
-  max-width: 760px;
-  font-weight: 800;
-  letter-spacing: -2.5px;
-}
-
-.hero p {
-  color: #9fb0c3;
-}
-
-.hero-badge {
-  box-shadow: 0 8px 25px rgba(14, 165, 233, 0.08);
-}
-
-/* Primary controls */
-.primary-button {
-  background: linear-gradient(135deg, #0ea5e9, #2563eb);
-  border: 1px solid rgba(125, 211, 252, 0.22);
-  box-shadow: 0 10px 28px rgba(14, 165, 233, 0.18);
-}
-
-.primary-button:hover {
-  transform: translateY(-2px);
-  filter: brightness(1.06);
-}
-
-.secondary-button {
-  background: rgba(15, 30, 48, 0.72);
-  border-color: rgba(148, 163, 184, 0.2);
-}
-
-.secondary-button:hover {
-  border-color: rgba(56, 189, 248, 0.38);
-  color: #e0f2fe;
-  background: rgba(14, 165, 233, 0.06);
-}
-
-/* KPI cards */
-.stat-card {
-  border-color: var(--ww-border);
-  background: linear-gradient(
-    145deg,
-    rgba(16, 35, 56, 0.88),
-    rgba(10, 25, 41, 0.82)
+    markersRef.current = [];
+
+    backendReports.forEach((report) => {
+      const color =
+        report.severity === "HIGH"
+          ? "#ff4d5a"
+          : report.severity === "MEDIUM"
+            ? "#ffb020"
+            : "#32d583";
+
+      const marker =
+        new maplibregl.Marker({
+          color,
+        })
+          .setLngLat([
+            Number(report.longitude),
+            Number(report.latitude),
+          ])
+          .setPopup(
+            new maplibregl.Popup({
+              offset: 25,
+            }).setHTML(`
+              <div style="min-width:210px">
+                <strong>${report.hazardType}</strong>
+                <br/>
+                <span>📍 ${
+                  report.location ||
+                  "Reported location"
+                }</span>
+                <br/>
+                <span>Severity: ${
+                  report.severity
+                }</span>
+                <br/>
+                <span>Status: ${
+                  report.status
+                }</span>
+                <br/>
+                <br/>
+                <span>${report.description}</span>
+              </div>
+            `)
+          )
+          .addTo(mapRef.current);
+
+      markersRef.current.push(marker);
+    });
+  }, [backendReports, mapReady]);
+
+  /* =========================================================
+     FETCH REPORTS
+  ========================================================= */
+
+  const fetchReports = async () => {
+    try {
+      setIsRefreshing(true);
+
+      const response = await fetch(API_URL);
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.error || "Failed to fetch reports"
+        );
+      }
+
+      const sortedReports =
+        (data.reports || []).sort(
+          (
+            a: BackendReport,
+            b: BackendReport
+          ) =>
+            new Date(
+              b.timestamp
+            ).getTime() -
+            new Date(
+              a.timestamp
+            ).getTime()
+        );
+
+      setBackendReports(sortedReports);
+    } catch (error) {
+      console.error(
+        "Error fetching reports:",
+        error
+      );
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchReports();
+  }, []);
+
+  /* =========================================================
+     DERIVED DASHBOARD DATA
+  ========================================================= */
+
+  const dashboardStats = useMemo(() => {
+    const active =
+      backendReports.filter(
+        (report) =>
+          report.status !== "PENDING" &&
+          report.status !== "RESOLVED"
+      ).length;
+
+    const underReview =
+      backendReports.filter(
+        (report) =>
+          report.status === "PENDING"
+      ).length;
+
+    const resolved =
+      backendReports.filter(
+        (report) =>
+          report.status === "RESOLVED"
+      ).length;
+
+    const high =
+      backendReports.filter(
+        (report) =>
+          report.severity === "HIGH"
+      ).length;
+
+    return {
+      active,
+      underReview,
+      resolved,
+      high,
+      total: backendReports.length,
+    };
+  }, [backendReports]);
+
+  const recentAlerts = useMemo(() => {
+    return backendReports
+      .filter(
+        (report) =>
+          report.severity === "HIGH" ||
+          report.severity === "MEDIUM"
+      )
+      .slice(0, 4);
+  }, [backendReports]);
+
+  /* =========================================================
+     SCROLL HELPERS
+  ========================================================= */
+
+  const scrollToMap = () => {
+    document
+      .getElementById("hazard-map")
+      ?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+  };
+
+  const scrollToReports = () => {
+    document
+      .getElementById("reports")
+      ?.scrollIntoView({
+        behavior: "smooth",
+      });
+  };
+
+  /* =========================================================
+     AMAZON LOCATION SEARCH
+  ========================================================= */
+
+  const searchLocation = async (
+    searchText: string
+  ) => {
+    const url =
+      `https://places.geo.${AWS_REGION}.amazonaws.com/v2/search-text` +
+      `?key=${encodeURIComponent(
+        LOCATION_API_KEY
+      )}`;
+
+    const response = await fetch(url, {
+      method: "POST",
+
+      headers: {
+        "Content-Type":
+          "application/json",
+      },
+
+      body: JSON.stringify({
+        QueryText: searchText,
+
+        MaxResults: 1,
+
+        BiasPosition: [
+          78.9629,
+          20.5937,
+        ],
+
+        Filter: {
+          IncludeCountries: ["IND"],
+        },
+
+        IntendedUse: "SingleUse",
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(
+        data.message ||
+          data.error ||
+          "Location search failed"
+      );
+    }
+
+    if (
+      !data.ResultItems ||
+      data.ResultItems.length === 0
+    ) {
+      throw new Error(
+        `Could not find "${searchText}" in India.`
+      );
+    }
+
+    const result =
+      data.ResultItems[0];
+
+    if (
+      !result.Position ||
+      result.Position.length !== 2
+    ) {
+      throw new Error(
+        "Location coordinates were not found."
+      );
+    }
+
+    return {
+      locationName:
+        result.Title || searchText,
+
+      longitude:
+        Number(result.Position[0]),
+
+      latitude:
+        Number(result.Position[1]),
+    };
+  };
+
+  /* =========================================================
+     UPLOAD PHOTO TO S3
+  ========================================================= */
+
+  const uploadPhotoToS3 = async (
+    file: File
+  ) => {
+    const urlResponse =
+      await fetch(API_URL, {
+        method: "POST",
+
+        headers: {
+          "Content-Type":
+            "application/json",
+        },
+
+        body: JSON.stringify({
+          action: "upload-url",
+          fileName: file.name,
+          contentType:
+            file.type ||
+            "image/jpeg",
+        }),
+      });
+
+    const urlData =
+      await urlResponse.json();
+
+    if (!urlResponse.ok) {
+      throw new Error(
+        urlData.error ||
+          "Could not generate photo upload URL."
+      );
+    }
+
+    const uploadResponse =
+      await fetch(
+        urlData.uploadUrl,
+        {
+          method: "PUT",
+
+          headers: {
+            "Content-Type":
+              file.type ||
+              "image/jpeg",
+          },
+
+          body: file,
+        }
+      );
+
+    if (!uploadResponse.ok) {
+      throw new Error(
+        "Photo upload failed. Please try again."
+      );
+    }
+
+    return urlData.photoKey as string;
+  };
+
+  /* =========================================================
+     SUBMIT REPORT
+  ========================================================= */
+
+  const submitReport = async () => {
+    if (
+      !location.trim() ||
+      !description.trim()
+    ) {
+      alert(
+        "Please enter the location and description."
+      );
+
+      return;
+    }
+
+    if (!LOCATION_API_KEY) {
+      alert(
+        "Amazon Location API key is not configured."
+      );
+
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      /* STEP 1 — LOCATION */
+
+      const place =
+        await searchLocation(
+          location.trim()
+        );
+
+      /* STEP 2 — MOVE MAP */
+
+      if (mapRef.current) {
+        mapRef.current.flyTo({
+          center: [
+            place.longitude,
+            place.latitude,
+          ],
+
+          zoom: 11,
+
+          essential: true,
+        });
+      }
+
+      /* STEP 3 — S3 PHOTO */
+
+      let photoKey = "";
+
+      if (photoFile) {
+        if (
+          !photoFile.type.startsWith(
+            "image/"
+          )
+        ) {
+          throw new Error(
+            "Please select an image file."
+          );
+        }
+
+        if (
+          photoFile.size >
+          10 * 1024 * 1024
+        ) {
+          throw new Error(
+            "Photo must be smaller than 10 MB."
+          );
+        }
+
+        photoKey =
+          await uploadPhotoToS3(
+            photoFile
+          );
+      }
+
+      /* STEP 4 — API */
+
+      const response =
+        await fetch(API_URL, {
+          method: "POST",
+
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+
+          body: JSON.stringify({
+            hazardType,
+            description,
+
+            location:
+              place.locationName,
+
+            latitude:
+              place.latitude,
+
+            longitude:
+              place.longitude,
+
+            photoKey,
+          }),
+        });
+
+      const data =
+        await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.error ||
+            "Failed to submit report"
+        );
+      }
+
+      /* STEP 5 — REFRESH */
+
+      await fetchReports();
+
+      /* STEP 6 — SUCCESS */
+
+      alert(
+        `Hazard reported successfully at ${place.locationName}!`
+      );
+
+      setHazardType("High Waves");
+      setLocation("");
+      setDescription("");
+      setPhotoFile(null);
+
+      setShowModal(false);
+
+      /* Move user to map */
+
+      setTimeout(() => {
+        scrollToMap();
+      }, 150);
+    } catch (error) {
+      console.error(
+        "Error submitting report:",
+        error
+      );
+
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Failed to submit report. Please try again."
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  /* =========================================================
+     FORMAT TIME
+  ========================================================= */
+
+  const formatTime = (
+    timestamp: string
+  ) => {
+    if (!timestamp) return "Recently";
+
+    return new Date(
+      timestamp
+    ).toLocaleString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  /* =========================================================
+     STATUS
+  ========================================================= */
+
+  const getStatus = (
+    report: BackendReport
+  ) => {
+    if (report.status === "PENDING") {
+      return "Under Review";
+    }
+
+    if (
+      report.status === "RESOLVED"
+    ) {
+      return "Resolved";
+    }
+
+    return "Active";
+  };
+
+  /* =========================================================
+     RENDER
+  ========================================================= */
+
+  return (
+    <div className="app">
+
+      {/* =====================================================
+          NAVBAR
+      ===================================================== */}
+
+      <nav className="navbar">
+
+        <div
+          className="brand"
+          onClick={() =>
+            window.scrollTo({
+              top: 0,
+              behavior: "smooth",
+            })
+          }
+        >
+          <div className="brand-mark">
+            <span>W</span>
+            <div className="brand-wave"></div>
+          </div>
+
+          <div className="brand-text">
+            <strong>WAVE WATCH</strong>
+            <span>
+              COASTAL INTELLIGENCE PLATFORM
+            </span>
+          </div>
+        </div>
+
+        <div className="nav-links">
+          <button
+            onClick={() =>
+              window.scrollTo({
+                top: 0,
+                behavior: "smooth",
+              })
+            }
+          >
+            Overview
+          </button>
+
+          <button onClick={scrollToMap}>
+            Live Map
+          </button>
+
+          <button onClick={scrollToReports}>
+            Reports
+          </button>
+        </div>
+
+        <div className="system-status">
+          <span className="status-pulse"></span>
+
+          <div>
+            <strong>SYSTEM ONLINE</strong>
+            <small>
+              AWS CLOUD SERVICES
+            </small>
+          </div>
+        </div>
+
+      </nav>
+
+      {/* =====================================================
+          COMMAND HERO
+      ===================================================== */}
+
+      <main>
+
+        <section className="command-hero">
+
+          <div className="hero-left">
+
+            <div className="eyebrow">
+              <span></span>
+              REAL-TIME COASTAL INTELLIGENCE
+            </div>
+
+            <h1>
+              Observe.
+              <br />
+              <span>Report.</span>
+              <br />
+              Protect.
+            </h1>
+
+            <p className="hero-description">
+              Wave Watch is a cloud-powered coastal
+              hazard intelligence platform that helps
+              communities report incidents and monitor
+              coastal activity across India.
+            </p>
+
+            <div className="hero-actions">
+
+              <button
+                className="command-button primary"
+                onClick={() =>
+                  setShowModal(true)
+                }
+              >
+                <span>+</span>
+                Report Hazard
+              </button>
+
+              <button
+                className="command-button ghost"
+                onClick={scrollToMap}
+              >
+                Explore Live Map
+                <span>↗</span>
+              </button>
+
+            </div>
+
+            <div className="hero-meta">
+
+              <div>
+                <span>REGION</span>
+                <strong>INDIA</strong>
+              </div>
+
+              <div>
+                <span>REPORTS</span>
+                <strong>
+                  {backendReports.length
+                    .toString()
+                    .padStart(2, "0")}
+                </strong>
+              </div>
+
+              <div>
+                <span>HIGH RISK</span>
+                <strong>
+                  {dashboardStats.high
+                    .toString()
+                    .padStart(2, "0")}
+                </strong>
+              </div>
+
+            </div>
+
+          </div>
+
+          <div className="hero-command-panel">
+
+            <div className="panel-topline">
+              <span>
+                COASTAL OPERATIONS
+              </span>
+
+              <span className="panel-live">
+                ● LIVE
+              </span>
+            </div>
+
+            <div className="coast-visual">
+
+              <div className="coast-grid"></div>
+
+              <div className="coast-lines line-a"></div>
+              <div className="coast-lines line-b"></div>
+              <div className="coast-lines line-c"></div>
+
+              <div className="india-outline">
+                <div className="india-glow"></div>
+              </div>
+
+              <div className="visual-point point-1">
+                <span></span>
+                <label>WEST</label>
+              </div>
+
+              <div className="visual-point point-2">
+                <span></span>
+                <label>SOUTH</label>
+              </div>
+
+              <div className="visual-point point-3">
+                <span></span>
+                <label>EAST</label>
+              </div>
+
+              <div className="visual-coordinate">
+                20.5937° N
+                <br />
+                78.9629° E
+              </div>
+
+            </div>
+
+            <div className="panel-footer">
+
+              <div>
+                <span>MONITORING</span>
+                <strong>INDIA COASTLINE</strong>
+              </div>
+
+              <div className="panel-wave">
+                ~ ~ ~ ~ ~
+              </div>
+
+            </div>
+
+          </div>
+
+        </section>
+
+        {/* =====================================================
+            KPI STRIP
+        ===================================================== */}
+
+        <section className="kpi-section">
+
+          <div className="kpi-label">
+            <span>01</span>
+            LIVE SYSTEM METRICS
+          </div>
+
+          <div className="kpi-grid">
+
+            <div className="kpi-card danger">
+              <div className="kpi-top">
+                <span>ACTIVE HAZARDS</span>
+                <i>!</i>
+              </div>
+
+              <strong>
+                {dashboardStats.active}
+              </strong>
+
+              <p>
+                Current unresolved incidents
+              </p>
+
+              <div className="kpi-line"></div>
+            </div>
+
+            <div className="kpi-card warning">
+              <div className="kpi-top">
+                <span>UNDER REVIEW</span>
+                <i>◷</i>
+              </div>
+
+              <strong>
+                {dashboardStats.underReview}
+              </strong>
+
+              <p>
+                Reports awaiting assessment
+              </p>
+
+              <div className="kpi-line"></div>
+            </div>
+
+            <div className="kpi-card success">
+              <div className="kpi-top">
+                <span>RESOLVED</span>
+                <i>✓</i>
+              </div>
+
+              <strong>
+                {dashboardStats.resolved}
+              </strong>
+
+              <p>
+                Incidents marked resolved
+              </p>
+
+              <div className="kpi-line"></div>
+            </div>
+
+            <div className="kpi-card info">
+              <div className="kpi-top">
+                <span>CITIZEN REPORTS</span>
+                <i>◎</i>
+              </div>
+
+              <strong>
+                {dashboardStats.total}
+              </strong>
+
+              <p>
+                Observations received
+              </p>
+
+              <div className="kpi-line"></div>
+            </div>
+
+          </div>
+
+        </section>
+
+        {/* =====================================================
+            LIVE OPERATIONS
+        ===================================================== */}
+
+        <section
+          className="operations-section"
+          id="hazard-map"
+        >
+
+          <div className="section-intro">
+
+            <div>
+              <span className="section-number">
+                02 / LIVE OPERATIONS
+              </span>
+
+              <h2>
+                Coastal
+                <span> situation map.</span>
+              </h2>
+
+              <p>
+                Real-time geographic view of citizen
+                reported coastal hazards powered by
+                Amazon Location Service.
+              </p>
+            </div>
+
+            <div className="refresh-control">
+
+              <span
+                className={
+                  isRefreshing
+                    ? "refresh-dot spinning"
+                    : "refresh-dot"
+                }
+              ></span>
+
+              <span>
+                {isRefreshing
+                  ? "SYNCING"
+                  : "DATA SYNCED"}
+              </span>
+
+              <button
+                onClick={fetchReports}
+                title="Refresh reports"
+              >
+                ↻
+              </button>
+
+            </div>
+
+          </div>
+
+          <div
+            className={
+              isMapExpanded
+                ? "operations-grid expanded-map"
+                : "operations-grid"
+            }
+          >
+
+            {/* MAP */}
+
+            <div className="map-shell">
+
+              <div className="map-toolbar">
+
+                <div>
+                  <span className="map-live-indicator">
+                    ●
+                  </span>
+
+                  <strong>
+                    LIVE HAZARD MAP
+                  </strong>
+
+                  <small>
+                    INDIA / COASTAL ZONE
+                  </small>
+                </div>
+
+                <button
+                  className="map-expand-button"
+                  onClick={() =>
+                    setIsMapExpanded(
+                      (value) => !value
+                    )
+                  }
+                >
+                  {isMapExpanded
+                    ? "EXIT FULL MAP"
+                    : "EXPAND MAP ↗"}
+                </button>
+
+              </div>
+
+              <div className="map-container">
+
+                <div
+                  ref={mapContainerRef}
+                  className="real-map"
+                />
+
+                {!LOCATION_API_KEY && (
+                  <div className="map-error">
+                    <strong>
+                      LOCATION SERVICE NOT CONFIGURED
+                    </strong>
+
+                    <span>
+                      Add VITE_LOCATION_API_KEY
+                      to Amplify environment
+                      variables.
+                    </span>
+                  </div>
+                )}
+
+                <div className="map-overlay-label">
+                  AMAZON LOCATION SERVICE
+                </div>
+
+                <div className="map-coordinates">
+                  78.9629° E
+                  <br />
+                  20.5937° N
+                </div>
+
+              </div>
+
+              <div className="map-bottom">
+
+                <div className="map-legend">
+
+                  <span>
+                    <i className="legend-dot high"></i>
+                    HIGH
+                  </span>
+
+                  <span>
+                    <i className="legend-dot medium"></i>
+                    MEDIUM
+                  </span>
+
+                  <span>
+                    <i className="legend-dot low"></i>
+                    LOW
+                  </span>
+
+                </div>
+
+                <span>
+                  {backendReports.length} mapped
+                  incidents
+                </span>
+
+              </div>
+
+            </div>
+
+            {/* INTELLIGENCE PANEL */}
+
+            {!isMapExpanded && (
+              <aside className="intelligence-panel">
+
+                <div className="intel-header">
+
+                  <div>
+                    <span>
+                      INCIDENT INTELLIGENCE
+                    </span>
+
+                    <h3>
+                      Current signals
+                    </h3>
+                  </div>
+
+                  <div className="signal-count">
+                    {recentAlerts.length}
+                  </div>
+
+                </div>
+
+                {recentAlerts.length === 0 ? (
+                  <div className="no-alerts">
+                    <div>✓</div>
+
+                    <strong>
+                      No active alerts
+                    </strong>
+
+                    <span>
+                      The monitoring network
+                      currently has no high or
+                      medium severity reports.
+                    </span>
+                  </div>
+                ) : (
+                  <div className="intel-list">
+
+                    {recentAlerts.map(
+                      (report, index) => (
+                        <div
+                          className="intel-item"
+                          key={report.reportId}
+                          onClick={() => {
+                            if (
+                              mapRef.current
+                            ) {
+                              mapRef.current.flyTo(
+                                {
+                                  center: [
+                                    Number(
+                                      report.longitude
+                                    ),
+                                    Number(
+                                      report.latitude
+                                    ),
+                                  ],
+                                  zoom: 11,
+                                  essential: true,
+                                }
+                              );
+                            }
+                          }}
+                        >
+
+                          <div
+                            className={`intel-severity ${report.severity.toLowerCase()}`}
+                          >
+                            {index + 1}
+                          </div>
+
+                          <div className="intel-content">
+
+                            <div className="intel-title">
+                              <strong>
+                                {report.hazardType}
+                              </strong>
+
+                              <span
+                                className={`mini-severity ${report.severity.toLowerCase()}`}
+                              >
+                                {report.severity}
+                              </span>
+                            </div>
+
+                            <span className="intel-location">
+                              📍{" "}
+                              {report.location ||
+                                "Reported location"}
+                            </span>
+
+                            <small>
+                              {formatTime(
+                                report.timestamp
+                              )}
+                            </small>
+
+                          </div>
+
+                          <span className="intel-arrow">
+                            →
+                          </span>
+
+                        </div>
+                      )
+                    )}
+
+                  </div>
+                )}
+
+                <div className="intel-summary">
+
+                  <div>
+                    <span>HIGH RISK</span>
+                    <strong>
+                      {dashboardStats.high}
+                    </strong>
+                  </div>
+
+                  <div>
+                    <span>ALL REPORTS</span>
+                    <strong>
+                      {dashboardStats.total}
+                    </strong>
+                  </div>
+
+                </div>
+
+              </aside>
+            )}
+
+          </div>
+
+        </section>
+
+        {/* =====================================================
+            REPORTS
+        ===================================================== */}
+
+        <section
+          className="reports-section"
+          id="reports"
+        >
+
+          <div className="section-intro">
+
+            <div>
+              <span className="section-number">
+                03 / INCIDENT LOG
+              </span>
+
+              <h2>
+                Community
+                <span> observations.</span>
+              </h2>
+
+              <p>
+                Every submitted report is stored in
+                DynamoDB and visualized on the live
+                operations map.
+              </p>
+            </div>
+
+            <button
+              className="command-button primary"
+              onClick={() =>
+                setShowModal(true)
+              }
+            >
+              + New Report
+            </button>
+
+          </div>
+
+          <div className="reports-panel">
+
+            <div className="reports-header">
+
+              <div>
+                <strong>
+                  INCIDENT DATABASE
+                </strong>
+
+                <span>
+                  {backendReports.length} records
+                </span>
+              </div>
+
+              <span>
+                SORTED BY LATEST
+              </span>
+
+            </div>
+
+            {backendReports.length === 0 ? (
+              <div className="empty-reports">
+                <div>◎</div>
+
+                <strong>
+                  No reports received
+                </strong>
+
+                <span>
+                  Submit the first coastal
+                  hazard observation.
+                </span>
+
+                <button
+                  onClick={() =>
+                    setShowModal(true)
+                  }
+                >
+                  Create Report
+                </button>
+              </div>
+            ) : (
+              <div className="report-list">
+
+                {backendReports.map(
+                  (report) => {
+                    const status =
+                      getStatus(report);
+
+                    return (
+                      <div
+                        className="report-card"
+                        key={report.reportId}
+                      >
+
+                        <div className="report-main">
+
+                          <div
+                            className={`report-severity ${report.severity.toLowerCase()}`}
+                          >
+                            <span></span>
+                            {report.severity}
+                          </div>
+
+                          <h3>
+                            {report.hazardType}
+                          </h3>
+
+                          <p>
+                            {report.description}
+                          </p>
+
+                        </div>
+
+                        <div className="report-location">
+
+                          <span>
+                            LOCATION
+                          </span>
+
+                          <strong>
+                            📍{" "}
+                            {report.location ||
+                              "Reported location"}
+                          </strong>
+
+                          <small>
+                            {Number(
+                              report.latitude
+                            ).toFixed(4)}
+                            ° N&nbsp;&nbsp;
+                            {Number(
+                              report.longitude
+                            ).toFixed(4)}
+                            ° E
+                          </small>
+
+                        </div>
+
+                        <div className="report-status-block">
+
+                          <span>
+                            STATUS
+                          </span>
+
+                          <strong
+                            className={
+                              status ===
+                              "Resolved"
+                                ? "resolved"
+                                : status ===
+                                    "Under Review"
+                                  ? "review"
+                                  : "active"
+                            }
+                          >
+                            {status}
+                          </strong>
+
+                          <small>
+                            {formatTime(
+                              report.timestamp
+                            )}
+                          </small>
+
+                        </div>
+
+                        <button
+                          className="report-map-button"
+                          onClick={() => {
+                            if (
+                              mapRef.current
+                            ) {
+                              mapRef.current.flyTo(
+                                {
+                                  center: [
+                                    Number(
+                                      report.longitude
+                                    ),
+                                    Number(
+                                      report.latitude
+                                    ),
+                                  ],
+                                  zoom: 11,
+                                  essential: true,
+                                }
+                              );
+                            }
+
+                            scrollToMap();
+                          }}
+                        >
+                          VIEW
+                          <span>↗</span>
+                        </button>
+
+                      </div>
+                    );
+                  }
+                )}
+
+              </div>
+            )}
+
+          </div>
+
+        </section>
+
+        {/* =====================================================
+            AWS ARCHITECTURE
+        ===================================================== */}
+
+        <section className="architecture-section">
+
+          <div className="architecture-heading">
+
+            <div>
+              <span className="section-number">
+                04 / CLOUD ARCHITECTURE
+              </span>
+
+              <h2>
+                Built on
+                <span> AWS.</span>
+              </h2>
+
+              <p>
+                Wave Watch uses managed AWS cloud
+                services for application hosting,
+                APIs, storage, intelligence and
+                monitoring.
+              </p>
+            </div>
+
+            <div className="architecture-badge">
+              AWS CLOUD
+              <strong>
+                11 SERVICES
+              </strong>
+            </div>
+
+          </div>
+
+          <div className="architecture-flow">
+
+            <div className="arch-node">
+              <span>01</span>
+              <strong>AMPLIFY</strong>
+              <small>
+                Frontend Hosting
+              </small>
+            </div>
+
+            <div className="flow-arrow">
+              →
+            </div>
+
+            <div className="arch-node">
+              <span>02</span>
+              <strong>API GATEWAY</strong>
+              <small>
+                REST API
+              </small>
+            </div>
+
+            <div className="flow-arrow">
+              →
+            </div>
+
+            <div className="arch-node">
+              <span>03</span>
+              <strong>LAMBDA</strong>
+              <small>
+                Serverless Logic
+              </small>
+            </div>
+
+            <div className="flow-arrow">
+              →
+            </div>
+
+            <div className="arch-node">
+              <span>04</span>
+              <strong>DYNAMODB</strong>
+              <small>
+                Hazard Database
+              </small>
+            </div>
+
+          </div>
+
+          <div className="service-grid">
+
+            <div>
+              <strong>S3</strong>
+              <span>
+                Photo Evidence
+              </span>
+            </div>
+
+            <div>
+              <strong>LOCATION</strong>
+              <span>
+                Maps & Geocoding
+              </span>
+            </div>
+
+            <div>
+              <strong>EVENTBRIDGE</strong>
+              <span>
+                Event Automation
+              </span>
+            </div>
+
+            <div>
+              <strong>COMPREHEND</strong>
+              <span>
+                Text Intelligence
+              </span>
+            </div>
+
+            <div>
+              <strong>CLOUDWATCH</strong>
+              <span>
+                Monitoring
+              </span>
+            </div>
+
+            <div>
+              <strong>CODEBUILD</strong>
+              <span>
+                CI Build
+              </span>
+            </div>
+
+            <div>
+              <strong>CODEPIPELINE</strong>
+              <span>
+                CI/CD Automation
+              </span>
+            </div>
+
+          </div>
+
+        </section>
+
+      </main>
+
+      {/* =====================================================
+          FOOTER
+      ===================================================== */}
+
+      <footer>
+
+        <div className="footer-brand">
+          <span>WAVE WATCH</span>
+          <small>
+            COASTAL INTELLIGENCE PLATFORM
+          </small>
+        </div>
+
+        <div className="footer-center">
+          AWS CLOUD INFRASTRUCTURE
+          <span>•</span>
+          INDIA
+        </div>
+
+        <div className="footer-right">
+          SYSTEM STATUS
+          <span>● OPERATIONAL</span>
+        </div>
+
+      </footer>
+
+      {/* =====================================================
+          REPORT MODAL
+      ===================================================== */}
+
+      {showModal && (
+        <div
+          className="modal-overlay"
+          onMouseDown={(event) => {
+            if (
+              event.target ===
+              event.currentTarget
+            ) {
+              setShowModal(false);
+            }
+          }}
+        >
+
+          <div className="report-modal">
+
+            <div className="modal-header">
+
+              <div>
+                <span>
+                  NEW INCIDENT
+                </span>
+
+                <h2>
+                  Report a coastal hazard
+                </h2>
+
+                <p>
+                  Submit a verified location and
+                  observation to the Wave Watch
+                  monitoring network.
+                </p>
+              </div>
+
+              <button
+                className="modal-close"
+                onClick={() =>
+                  setShowModal(false)
+                }
+              >
+                ×
+              </button>
+
+            </div>
+
+            <div className="workflow">
+
+              <div className="workflow-step active">
+                <span>01</span>
+                LOCATION
+              </div>
+
+              <div className="workflow-line"></div>
+
+              <div className="workflow-step">
+                <span>02</span>
+                EVIDENCE
+              </div>
+
+              <div className="workflow-line"></div>
+
+              <div className="workflow-step">
+                <span>03</span>
+                CLOUD
+              </div>
+
+            </div>
+
+            <div className="form-grid">
+
+              <div className="form-field full">
+
+                <label>
+                  HAZARD TYPE
+                </label>
+
+                <select
+                  value={hazardType}
+                  onChange={(event) =>
+                    setHazardType(
+                      event.target.value
+                    )
+                  }
+                >
+                  {HAZARD_TYPES.map(
+                    (type) => (
+                      <option
+                        key={type}
+                        value={type}
+                      >
+                        {type}
+                      </option>
+                    )
+                  )}
+                </select>
+
+              </div>
+
+              <div className="form-field full">
+
+                <label>
+                  LOCATION
+                  <span>
+                    AMAZON LOCATION SERVICE
+                  </span>
+                </label>
+
+                <input
+                  value={location}
+                  onChange={(event) =>
+                    setLocation(
+                      event.target.value
+                    )
+                  }
+                  placeholder="Example: Marina Beach, Chennai"
+                />
+
+              </div>
+
+              <div className="form-field full">
+
+                <label>
+                  OBSERVATION
+                </label>
+
+                <textarea
+                  value={description}
+                  onChange={(event) =>
+                    setDescription(
+                      event.target.value
+                    )
+                  }
+                  placeholder="Describe what you observed..."
+                  rows={5}
+                />
+
+              </div>
+
+              <div className="form-field full">
+
+                <label>
+                  PHOTO EVIDENCE
+                  <span>
+                    OPTIONAL / MAX 10 MB
+                  </span>
+                </label>
+
+                <label className="file-drop">
+
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(event) => {
+                      const file =
+                        event.target.files?.[0] ||
+                        null;
+
+                      setPhotoFile(file);
+                    }}
+                  />
+
+                  <div className="upload-icon">
+                    ↑
+                  </div>
+
+                  <div>
+                    <strong>
+                      {photoFile
+                        ? photoFile.name
+                        : "Upload evidence photo"}
+                    </strong>
+
+                    <span>
+                      Stored securely in Amazon S3
+                    </span>
+                  </div>
+
+                </label>
+
+              </div>
+
+            </div>
+
+            <div className="modal-security">
+
+              <div>
+                <span className="security-icon">
+                  ✓
+                </span>
+
+                <div>
+                  <strong>
+                    Secure cloud submission
+                  </strong>
+
+                  <small>
+                    Location → S3 → API Gateway
+                    → Lambda → DynamoDB
+                  </small>
+                </div>
+              </div>
+
+              <span>
+                AWS
+              </span>
+
+            </div>
+
+            <div className="modal-actions">
+
+              <button
+                className="cancel-button"
+                onClick={() =>
+                  setShowModal(false)
+                }
+                disabled={isSubmitting}
+              >
+                Cancel
+              </button>
+
+              <button
+                className="submit-button"
+                onClick={submitReport}
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? (
+                  <>
+                    <span className="button-spinner"></span>
+                    PROCESSING...
+                  </>
+                ) : (
+                  <>
+                    SUBMIT REPORT
+                    <span>→</span>
+                  </>
+                )}
+              </button>
+
+            </div>
+
+          </div>
+
+        </div>
+      )}
+
+    </div>
   );
-  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.14);
-  transition: transform 0.2s ease, border-color 0.2s ease;
 }
 
-.stat-card:hover {
-  transform: translateY(-2px);
-  border-color: rgba(56, 189, 248, 0.22);
-}
-
-/* Section headings */
-.section-heading {
-  margin-bottom: 24px;
-}
-
-.section-heading h2 {
-  font-weight: 750;
-}
-
-.section-heading p,
-.map-header span,
-.location,
-.time {
-  color: #8ea0b5;
-}
-
-/* Monitoring panels */
-.map-card,
-.alert-card,
-.reports-table {
-  border-color: var(--ww-border);
-  background: linear-gradient(
-    145deg,
-    rgba(14, 31, 50, 0.92),
-    rgba(9, 23, 38, 0.9)
-  );
-  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.16);
-}
-
-.map-card,
-.alert-card {
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
-}
-
-.map-card:hover,
-.alert-card:hover {
-  border-color: rgba(56, 189, 248, 0.2);
-}
-
-/* Real Amazon Location map */
-.real-map {
-  width: 100%;
-  height: 330px;
-  min-height: 330px;
-  position: relative;
-  overflow: hidden;
-  border-radius: 14px;
-  background: #0b2033;
-  border: 1px solid rgba(148, 163, 184, 0.12);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.015);
-}
-
-.real-map .maplibregl-map {
-  width: 100%;
-  height: 100%;
-}
-
-.real-map .maplibregl-canvas {
-  outline: none;
-}
-
-.real-map .maplibregl-ctrl-top-right {
-  top: 12px;
-  right: 12px;
-}
-
-.real-map .maplibregl-ctrl-group {
-  overflow: hidden;
-  border: 1px solid rgba(148, 163, 184, 0.2);
-  border-radius: 9px;
-  background: rgba(6, 17, 31, 0.9);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
-}
-
-.real-map .maplibregl-ctrl-group button {
-  width: 32px;
-  height: 32px;
-  background-color: transparent;
-}
-
-.real-map .maplibregl-ctrl-group button:hover {
-  background-color: rgba(56, 189, 248, 0.12);
-}
-
-/* Map header button */
-.map-button {
-  border-color: rgba(148, 163, 184, 0.18);
-  background: rgba(255, 255, 255, 0.025);
-  transition: 0.2s ease;
-}
-
-.map-button:hover {
-  border-color: rgba(56, 189, 248, 0.42);
-  color: #7dd3fc;
-  background: rgba(56, 189, 248, 0.06);
-}
-
-/* Alerts */
-.alert-item {
-  transition: background 0.2s ease;
-  border-radius: 10px;
-}
-
-.alert-item:hover {
-  background: rgba(255, 255, 255, 0.018);
-}
-
-/* Reports */
-.reports-table {
-  overflow-x: auto;
-}
-
-.report-row {
-  transition: background 0.18s ease;
-}
-
-.report-row:hover {
-  background: rgba(56, 189, 248, 0.035);
-}
-
-.table-header {
-  color: #71839a;
-  border-bottom: 1px solid rgba(148, 163, 184, 0.08);
-}
-
-/* Modal */
-.modal-overlay {
-  background: rgba(2, 8, 18, 0.78);
-}
-
-.modal {
-  border-color: rgba(56, 189, 248, 0.2);
-  background: linear-gradient(145deg, #0c1e32, #091827);
-  box-shadow:
-    0 30px 90px rgba(0, 0, 0, 0.55),
-    0 0 0 1px rgba(255, 255, 255, 0.02);
-}
-
-.modal input,
-.modal textarea,
-.modal select {
-  border-color: rgba(148, 163, 184, 0.18);
-  background: #071321;
-  transition: border-color 0.18s ease, box-shadow 0.18s ease;
-}
-
-.modal input:focus,
-.modal textarea:focus,
-.modal select:focus {
-  border-color: rgba(14, 165, 233, 0.65);
-  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.08);
-}
-
-/* AWS services */
-.aws-services div {
-  transition: transform 0.18s ease, border-color 0.18s ease,
-    background 0.18s ease;
-}
-
-.aws-services div:hover {
-  transform: translateY(-2px);
-  border-color: rgba(56, 189, 248, 0.22);
-  background: rgba(15, 35, 55, 0.68);
-}
-
-/* Expanded map */
-.map-card.expanded {
-  background: #081827;
-}
-
-.map-card.expanded .real-map {
-  border-color: rgba(56, 189, 248, 0.2);
-}
-
-/* Responsive */
-@media (max-width: 900px) {
-  .hero {
-    padding-top: 64px;
-  }
-
-  .monitoring,
-  .reports {
-    padding-top: 58px;
-    padding-bottom: 58px;
-  }
-}
-
-@media (max-width: 600px) {
-  .navbar {
-    height: 68px;
-  }
-
-  .hero {
-    min-height: auto;
-  }
-
-  .real-map {
-    height: 260px;
-    min-height: 260px;
-  }
-}
+export default App;
