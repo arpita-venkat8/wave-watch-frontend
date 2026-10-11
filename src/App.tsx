@@ -479,7 +479,7 @@ function App() {
         <div className="logo">
 
           <span className="logo-icon">
-            🌊
+            WW
           </span>
 
           <div>
@@ -506,20 +506,29 @@ function App() {
         <div className="hero-content">
 
           <div className="hero-badge">
-            🌊 REAL-TIME COASTAL MONITORING
+            ● REAL-TIME COASTAL INTELLIGENCE
           </div>
 
           <h1>
-            Stay Ahead of
+            Monitor.
             <br />
-            <span>Coastal Hazards.</span>
+            <span>Report. Respond.</span>
           </h1>
 
           <p>
-            Wave Watch helps communities report, monitor
-            and manage coastal hazards using real-time
-            AWS cloud technology.
+            Wave Watch provides real-time visibility into
+            coastal hazards across India, connecting citizen
+            reports with cloud-powered monitoring.
           </p>
+
+          <div className="hero-system-line">
+            <span>
+              <i></i>
+              SYSTEM OPERATIONAL
+            </span>
+            <span>INDIA COASTAL NETWORK</span>
+            <span>LIVE DATA</span>
+          </div>
 
           <div className="hero-buttons">
 
@@ -541,34 +550,57 @@ function App() {
 
         </div>
 
-        <div className="hero-visual">
+        <div className="hero-visual radar-hero">
 
-          <div className="ocean-circle">
+          <div className="radar-shell">
 
-            <div className="wave wave-one"></div>
-            <div className="wave wave-two"></div>
-            <div className="wave wave-three"></div>
+            <div className="radar-grid"></div>
 
-            <div className="location-pin">
-              📍
+            <div className="radar-ring ring-1"></div>
+            <div className="radar-ring ring-2"></div>
+            <div className="radar-ring ring-3"></div>
+            <div className="radar-ring ring-4"></div>
+
+            <div className="radar-cross vertical"></div>
+            <div className="radar-cross horizontal"></div>
+
+            <div className="radar-sweep"></div>
+
+            <span className="radar-blip blip-1"></span>
+            <span className="radar-blip blip-2"></span>
+            <span className="radar-blip blip-3"></span>
+            <span className="radar-blip blip-4"></span>
+            <span className="radar-blip blip-5"></span>
+
+            <div className="radar-center">
+              <span></span>
+            </div>
+
+            <div className="radar-ticks">
+              <span></span><span></span><span></span><span></span>
+              <span></span><span></span><span></span><span></span>
+              <span></span><span></span><span></span><span></span>
             </div>
 
           </div>
 
-          <div className="floating-card">
+          <div className="radar-status-card">
+            <div className="radar-status-top">
+              <span className="status-indicator"></span>
+              LIVE SCAN
+            </div>
 
-            <span className="small-label">
-              ACTIVE ALERT
-            </span>
+            <strong>COASTAL ACTIVITY</strong>
 
-            <strong>
-              High Wave Activity
-            </strong>
+            <div className="radar-status-line">
+              <span>Region</span>
+              <b>INDIA</b>
+            </div>
 
-            <span>
-              📍 Marina Beach
-            </span>
-
+            <div className="radar-status-line">
+              <span>Reports</span>
+              <b>{backendReports.length}</b>
+            </div>
           </div>
 
         </div>
