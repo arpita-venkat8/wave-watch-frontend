@@ -33,6 +33,7 @@ function App() {
 
   const [hazardType, setHazardType] = useState("High Waves");
   const [customHazardType, setCustomHazardType] = useState("");
+  const [severity, setSeverity] = useState<"HIGH" | "MEDIUM" | "LOW">("MEDIUM");
   const [location, setLocation] = useState("");
   const [description, setDescription] = useState("");
   const [photoFile, setPhotoFile] = useState<File | null>(null);
@@ -44,6 +45,54 @@ function App() {
 
   const [backendReports, setBackendReports] = useState<BackendReport[]>([]);
   const [mapReady, setMapReady] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // =========================================================
+  // REAL DASHBOARD METRICS FROM DYNAMODB REPORTS
+  // =========================================================
+
+  const activeReports = backendReports.filter(
+    (report) => report.status !== "PENDING" && report.status !== "RESOLVED"
+  );
+
+  const pendingReports = backendReports.filter(
+    (report) => report.status === "PENDING"
+  );
+
+  const resolvedReports = backendReports.filter(
+    (report) => report.status === "RESOLVED"
+  );
+
+  const highActiveReports = backendReports.filter(
+    (report) => report.severity === "HIGH" && report.status !== "RESOLVED"
+  );
+
+  const mediumActiveReports = backendReports.filter(
+    (report) => report.severity === "MEDIUM" && report.status !== "RESOLVED"
+  );
+
+  const lowActiveReports = backendReports.filter(
+    (report) => report.severity === "LOW" && report.status !== "RESOLVED"
+  );
+
+  // Current alerts are calculated entirely from the live DynamoDB report list.
+  // Resolved reports are excluded; higher severity is shown first, then newest.
+  const currentAlerts = [...backendReports]
+    .filter((report) => report.status !== "RESOLVED")
+    .sort((a, b) => {
+      const severityRank = { HIGH: 3, MEDIUM: 2, LOW: 1 };
+      const severityDifference =
+        severityRank[b.severity] - severityRank[a.severity];
+
+      if (severityDifference !== 0) return severityDifference;
+
+      return (
+        new Date(b.timestamp).getTime() -
+        new Date(a.timestamp).getTime()
+      );
+    })
+    .slice(0, 4);
 
   // =========================================================
   // INITIALIZE AMAZON LOCATION MAP
@@ -158,36 +207,54 @@ function App() {
 
   const fetchReports = async () => {
     try {
+      setIsRefreshing(true);
+
       const response = await fetch(
-        "https://cw6ehoudu9.execute-api.ap-southeast-2.amazonaws.com/reports"
+        "https://cw6ehoudu9.execute-api.ap-southeast-2.amazonaws.com/reports",
+        { cache: "no-store" }
       );
 
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(
-          data.error || "Failed to fetch reports"
-        );
+        throw new Error(data.error || "Failed to fetch reports");
       }
 
-      const sortedReports = (data.reports || []).sort(
-        (a: BackendReport, b: BackendReport) => {
+      const normalizedReports: BackendReport[] = (data.reports || [])
+        .map((report: BackendReport) => ({
+          ...report,
+          severity:
+            report.severity === "HIGH" ||
+            report.severity === "LOW" ||
+            report.severity === "MEDIUM"
+              ? report.severity
+              : "MEDIUM",
+          status: report.status || "PENDING",
+        }))
+        .sort((a: BackendReport, b: BackendReport) => {
           return (
             new Date(b.timestamp).getTime() -
             new Date(a.timestamp).getTime()
           );
-        }
-      );
+        });
 
-      setBackendReports(sortedReports);
+      setBackendReports(normalizedReports);
+      setLastUpdated(new Date());
     } catch (error) {
       console.error("Error fetching reports:", error);
+    } finally {
+      setIsRefreshing(false);
     }
   };
 
   // Load reports when application starts
   useEffect(() => {
     fetchReports();
+
+    // Keep the dashboard synchronized with DynamoDB.
+    const refreshTimer = window.setInterval(fetchReports, 30000);
+
+    return () => window.clearInterval(refreshTimer);
   }, []);
 
   // =========================================================
@@ -411,6 +478,7 @@ function App() {
 
           body: JSON.stringify({
             hazardType: finalHazardType,
+            severity: severity,
             description: description,
 
             // Real location name
@@ -454,6 +522,8 @@ function App() {
       // Clear form
       setHazardType("High Waves");
       setCustomHazardType("");
+      setSeverity("MEDIUM");
+      setSeverity("MEDIUM");
       setLocation("");
       setDescription("");
       setPhotoFile(null);
@@ -603,65 +673,64 @@ function App() {
       </section>
 
       {/* =====================================================
-          STATISTICS
+          LIVE STATISTICS
       ===================================================== */}
 
       <section className="stats">
-
-        <div className="stat-card">
-
-          <div className="stat-icon red">
-            🚨
-          </div>
-
+        <div className="stat-card stat-danger">
+          <div className="stat-icon">🚨</div>
           <div>
             <span>Active Hazards</span>
-            <strong>12</strong>
+            <strong>{activeReports.length}</strong>
+            <small>{highActiveReports.length} high severity</small>
           </div>
-
         </div>
 
-        <div className="stat-card">
-
-          <div className="stat-icon orange">
-            ⚠️
-          </div>
-
+        <div className="stat-card stat-warning">
+          <div className="stat-icon">◉</div>
           <div>
             <span>Under Review</span>
-            <strong>7</strong>
+            <strong>{pendingReports.length}</strong>
+            <small>Awaiting assessment</small>
           </div>
-
         </div>
 
-        <div className="stat-card">
-
-          <div className="stat-icon green">
-            ✓
-          </div>
-
+        <div className="stat-card stat-success">
+          <div className="stat-icon">✓</div>
           <div>
             <span>Resolved</span>
-            <strong>34</strong>
+            <strong>{resolvedReports.length}</strong>
+            <small>Closed reports</small>
           </div>
-
         </div>
 
-        <div className="stat-card">
-
-          <div className="stat-icon blue">
-            👥
-          </div>
-
+        <div className="stat-card stat-info">
+          <div className="stat-icon">◎</div>
           <div>
             <span>Citizen Reports</span>
-            <strong>
-              {backendReports.length}
-            </strong>
+            <strong>{backendReports.length}</strong>
+            <small>All reports received</small>
           </div>
-
         </div>
+      </section>
 
+      <section className="severity-strip">
+        <div>
+          <span className="severity-dot high"></span>
+          <strong>{highActiveReports.length}</strong> High severity
+        </div>
+        <div>
+          <span className="severity-dot medium"></span>
+          <strong>{mediumActiveReports.length}</strong> Medium severity
+        </div>
+        <div>
+          <span className="severity-dot low"></span>
+          <strong>{lowActiveReports.length}</strong> Low severity
+        </div>
+        <div className="data-refresh">
+          <span className="refresh-dot"></span>
+          {isRefreshing ? "Syncing reports..." : lastUpdated ? `Data synced ${lastUpdated.toLocaleTimeString()}` : "Waiting for data"}
+        </div>
       </section>
 
       {/* =====================================================
@@ -802,7 +871,6 @@ function App() {
             <div className="alert-header">
 
               <div>
-
                 <span className="section-tag">
                   URGENT
                 </span>
@@ -810,86 +878,81 @@ function App() {
                 <h3>
                   Current Alerts
                 </h3>
-
               </div>
 
-              <span className="alert-count">
-                3
-              </span>
-
-            </div>
-
-            <div className="alert-item high">
-
-              <div className="alert-icon">
-                🌊
-              </div>
-
-              <div>
-
-                <strong>
-                  High Wave Activity
-                </strong>
-
-                <span>
-                  Marina Beach
-                </span>
-
-                <small>
-                  8 minutes ago
-                </small>
-
+              <div className="alert-actions">
+                <span className="alert-count">{currentAlerts.length}</span>
+                <button className="text-button" onClick={fetchReports} disabled={isRefreshing}>
+                  {isRefreshing ? "Syncing" : "Refresh"}
+                </button>
               </div>
 
             </div>
 
-            <div className="alert-item medium">
-
-              <div className="alert-icon">
-                🌧️
+            {currentAlerts.length === 0 ? (
+              <div
+                style={{
+                  padding: "28px 10px",
+                  textAlign: "center",
+                  color: "#94a3b8",
+                }}
+              >
+                No active alerts right now.
               </div>
+            ) : (
+              currentAlerts.map((report) => {
+                const alertClass = report.severity.toLowerCase();
+                const alertIcon =
+                  report.severity === "HIGH"
+                    ? "🚨"
+                    : report.severity === "MEDIUM"
+                      ? "⚠️"
+                      : "ℹ️";
 
-              <div>
+                const timeAgo = report.timestamp
+                  ? (() => {
+                      const minutes = Math.max(
+                        0,
+                        Math.floor(
+                          (Date.now() - new Date(report.timestamp).getTime()) /
+                            60000
+                        )
+                      );
 
-                <strong>
-                  Coastal Flooding
-                </strong>
+                      if (minutes < 1) return "Just now";
+                      if (minutes < 60) return `${minutes} min ago`;
+                      const hours = Math.floor(minutes / 60);
+                      if (hours < 24) return `${hours} hr ago`;
+                      return `${Math.floor(hours / 24)} day(s) ago`;
+                    })()
+                  : "Recently";
 
-                <span>
-                  Besant Nagar
-                </span>
+                return (
+                  <div
+                    className={`alert-item ${alertClass}`}
+                    key={report.reportId}
+                  >
+                    <div className="alert-icon">
+                      {alertIcon}
+                    </div>
 
-                <small>
-                  24 minutes ago
-                </small>
+                    <div>
+                      <strong>
+                        {report.hazardType}
+                      </strong>
 
-              </div>
+                      <span>
+                        📍 {report.location || "Reported location"}
+                      </span>
 
-            </div>
-
-            <div className="alert-item low">
-
-              <div className="alert-icon">
-                💨
-              </div>
-
-              <div>
-
-                <strong>
-                  Strong Winds
-                </strong>
-
-                <span>
-                  Kovalam
-                </span>
-
-                <small>
-                  41 minutes ago
-                </small>
-
-              </div>
-
-            </div>
+                      <small>
+                        {report.severity} • {report.status === "PENDING" ? "Under Review" : "Active"} • {timeAgo}
+                      </small>
+                    </div>
+                  </div>
+                );
+              })
+            )}
 
           </div>
 
@@ -1210,6 +1273,25 @@ function App() {
                 />
               </>
             )}
+
+            {/* SEVERITY */}
+
+            <label>
+              Severity
+            </label>
+
+            <select
+              value={severity}
+              onChange={(e) =>
+                setSeverity(
+                  e.target.value as "HIGH" | "MEDIUM" | "LOW"
+                )
+              }
+            >
+              <option value="HIGH">High — Immediate attention</option>
+              <option value="MEDIUM">Medium — Needs monitoring</option>
+              <option value="LOW">Low — Minor / localized</option>
+            </select>
 
             {/* LOCATION */}
 
