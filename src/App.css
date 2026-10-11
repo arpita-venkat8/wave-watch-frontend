@@ -1224,8 +1224,6 @@ footer {
     width: 270px;
     height: 270px;
   }
-}
-
 /* =========================================
    REAL AMAZON LOCATION MAP
    ========================================= */
@@ -1320,3 +1318,312 @@ footer {
 @keyframes alertFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
 @keyframes alertBlink{0%,100%{opacity:1;text-shadow:0 0 0 rgba(248,113,113,0)}50%{opacity:.65;text-shadow:0 0 12px rgba(248,113,113,.65)}}
 @media (prefers-reduced-motion:reduce){.hero-visual::before,.hero-visual::after,.ocean-circle,.wave-one,.wave-two,.wave-three,.location-pin,.floating-card,.small-label{animation:none!important}}
+/* =========================================================
+   PROFESSIONAL UI POLISH â€” VISUAL ONLY
+   No application logic or backend behavior is changed.
+   ========================================================= */
+
+:root {
+  --ww-bg: #071321;
+  --ww-panel: rgba(13, 29, 47, 0.86);
+  --ww-panel-solid: #0c1c2e;
+  --ww-border: rgba(148, 163, 184, 0.16);
+  --ww-border-strong: rgba(56, 189, 248, 0.28);
+  --ww-text: #f8fafc;
+  --ww-muted: #8ea0b5;
+  --ww-accent: #38bdf8;
+  --ww-accent-2: #2563eb;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--ww-bg);
+  color: var(--ww-text);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+button,
+input,
+textarea,
+select {
+  font-family: inherit;
+}
+
+/* Navbar */
+.navbar {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  height: 72px;
+  padding: 0 clamp(20px, 5vw, 7%);
+  background: rgba(5, 15, 27, 0.88);
+  border-bottom: 1px solid rgba(148, 163, 184, 0.14);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.16);
+}
+
+/* Hero */
+.hero {
+  position: relative;
+  min-height: 600px;
+  padding: 82px clamp(20px, 7vw, 7%);
+}
+
+.hero h1 {
+  max-width: 760px;
+  font-weight: 800;
+  letter-spacing: -2.5px;
+}
+
+.hero p {
+  color: #9fb0c3;
+}
+
+.hero-badge {
+  box-shadow: 0 8px 25px rgba(14, 165, 233, 0.08);
+}
+
+/* Primary controls */
+.primary-button {
+  background: linear-gradient(135deg, #0ea5e9, #2563eb);
+  border: 1px solid rgba(125, 211, 252, 0.22);
+  box-shadow: 0 10px 28px rgba(14, 165, 233, 0.18);
+}
+
+.primary-button:hover {
+  transform: translateY(-2px);
+  filter: brightness(1.06);
+}
+
+.secondary-button {
+  background: rgba(15, 30, 48, 0.72);
+  border-color: rgba(148, 163, 184, 0.2);
+}
+
+.secondary-button:hover {
+  border-color: rgba(56, 189, 248, 0.38);
+  color: #e0f2fe;
+  background: rgba(14, 165, 233, 0.06);
+}
+
+/* KPI cards */
+.stat-card {
+  border-color: var(--ww-border);
+  background: linear-gradient(
+    145deg,
+    rgba(16, 35, 56, 0.88),
+    rgba(10, 25, 41, 0.82)
+  );
+  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.14);
+  transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.stat-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(56, 189, 248, 0.22);
+}
+
+/* Section headings */
+.section-heading {
+  margin-bottom: 24px;
+}
+
+.section-heading h2 {
+  font-weight: 750;
+}
+
+.section-heading p,
+.map-header span,
+.location,
+.time {
+  color: #8ea0b5;
+}
+
+/* Monitoring panels */
+.map-card,
+.alert-card,
+.reports-table {
+  border-color: var(--ww-border);
+  background: linear-gradient(
+    145deg,
+    rgba(14, 31, 50, 0.92),
+    rgba(9, 23, 38, 0.9)
+  );
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.16);
+}
+
+.map-card,
+.alert-card {
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.map-card:hover,
+.alert-card:hover {
+  border-color: rgba(56, 189, 248, 0.2);
+}
+
+/* Real Amazon Location map */
+.real-map {
+  width: 100%;
+  height: 330px;
+  min-height: 330px;
+  position: relative;
+  overflow: hidden;
+  border-radius: 14px;
+  background: #0b2033;
+  border: 1px solid rgba(148, 163, 184, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.015);
+}
+
+.real-map .maplibregl-map {
+  width: 100%;
+  height: 100%;
+}
+
+.real-map .maplibregl-canvas {
+  outline: none;
+}
+
+.real-map .maplibregl-ctrl-top-right {
+  top: 12px;
+  right: 12px;
+}
+
+.real-map .maplibregl-ctrl-group {
+  overflow: hidden;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 9px;
+  background: rgba(6, 17, 31, 0.9);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+}
+
+.real-map .maplibregl-ctrl-group button {
+  width: 32px;
+  height: 32px;
+  background-color: transparent;
+}
+
+.real-map .maplibregl-ctrl-group button:hover {
+  background-color: rgba(56, 189, 248, 0.12);
+}
+
+/* Map header button */
+.map-button {
+  border-color: rgba(148, 163, 184, 0.18);
+  background: rgba(255, 255, 255, 0.025);
+  transition: 0.2s ease;
+}
+
+.map-button:hover {
+  border-color: rgba(56, 189, 248, 0.42);
+  color: #7dd3fc;
+  background: rgba(56, 189, 248, 0.06);
+}
+
+/* Alerts */
+.alert-item {
+  transition: background 0.2s ease;
+  border-radius: 10px;
+}
+
+.alert-item:hover {
+  background: rgba(255, 255, 255, 0.018);
+}
+
+/* Reports */
+.reports-table {
+  overflow-x: auto;
+}
+
+.report-row {
+  transition: background 0.18s ease;
+}
+
+.report-row:hover {
+  background: rgba(56, 189, 248, 0.035);
+}
+
+.table-header {
+  color: #71839a;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.08);
+}
+
+/* Modal */
+.modal-overlay {
+  background: rgba(2, 8, 18, 0.78);
+}
+
+.modal {
+  border-color: rgba(56, 189, 248, 0.2);
+  background: linear-gradient(145deg, #0c1e32, #091827);
+  box-shadow:
+    0 30px 90px rgba(0, 0, 0, 0.55),
+    0 0 0 1px rgba(255, 255, 255, 0.02);
+}
+
+.modal input,
+.modal textarea,
+.modal select {
+  border-color: rgba(148, 163, 184, 0.18);
+  background: #071321;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.modal input:focus,
+.modal textarea:focus,
+.modal select:focus {
+  border-color: rgba(14, 165, 233, 0.65);
+  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.08);
+}
+
+/* AWS services */
+.aws-services div {
+  transition: transform 0.18s ease, border-color 0.18s ease,
+    background 0.18s ease;
+}
+
+.aws-services div:hover {
+  transform: translateY(-2px);
+  border-color: rgba(56, 189, 248, 0.22);
+  background: rgba(15, 35, 55, 0.68);
+}
+
+/* Expanded map */
+.map-card.expanded {
+  background: #081827;
+}
+
+.map-card.expanded .real-map {
+  border-color: rgba(56, 189, 248, 0.2);
+}
+
+/* Responsive */
+@media (max-width: 900px) {
+  .hero {
+    padding-top: 64px;
+  }
+
+  .monitoring,
+  .reports {
+    padding-top: 58px;
+    padding-bottom: 58px;
+  }
+}
+
+@media (max-width: 600px) {
+  .navbar {
+    height: 68px;
+  }
+
+  .hero {
+    min-height: auto;
+  }
+
+  .real-map {
+    height: 260px;
+    min-height: 260px;
+  }
+}
