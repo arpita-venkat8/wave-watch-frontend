@@ -1,42 +1,17 @@
-/* =========================================================
+/* =========================================
    WAVE WATCH
-   Coastal Hazard Monitoring Platform
-   ========================================================= */
+   ========================================= */
 
 * {
   box-sizing: border-box;
 }
 
-html {
-  scroll-behavior: smooth;
-}
-
-html,
-body,
-#root {
-  margin: 0;
-  min-height: 100%;
-}
-
 body {
   margin: 0;
-  background: #06111f;
-}
-
-button,
-input,
-textarea,
-select {
-  font: inherit;
-}
-
-button {
-  cursor: pointer;
 }
 
 .app {
   min-height: 100vh;
-
   background:
     radial-gradient(
       circle at 10% 10%,
@@ -51,7 +26,6 @@ button {
     #06111f;
 
   color: #f8fafc;
-
   font-family:
     Inter,
     system-ui,
@@ -61,25 +35,21 @@ button {
     sans-serif;
 }
 
-/* =========================================================
+/* =========================================
    NAVBAR
-   ========================================================= */
+   ========================================= */
 
 .navbar {
   height: 80px;
   padding: 0 7%;
-
   display: flex;
   align-items: center;
   justify-content: space-between;
 
   border-bottom: 1px solid rgba(148, 163, 184, 0.12);
 
-  background: rgba(6, 17, 31, 0.85);
+  background: rgba(6, 17, 31, 0.8);
   backdrop-filter: blur(15px);
-
-  position: relative;
-  z-index: 20;
 }
 
 .logo {
@@ -88,26 +58,17 @@ button {
   gap: 12px;
 }
 
-.logo-mark,
 .logo-icon {
   font-size: 30px;
 }
 
-.logo strong,
 .logo h2 {
-  display: block;
   margin: 0;
-
   font-size: 17px;
   letter-spacing: 2px;
 }
 
-.logo small,
 .logo span:last-child {
-  display: block;
-
-  margin-top: 3px;
-
   color: #64748b;
   font-size: 11px;
 }
@@ -125,7 +86,6 @@ button {
   background: rgba(34, 197, 94, 0.08);
 
   color: #86efac;
-
   font-size: 13px;
   font-weight: 700;
 }
@@ -133,21 +93,14 @@ button {
 .live-dot {
   width: 8px;
   height: 8px;
-
-  display: inline-block;
-
   border-radius: 50%;
-
   background: #22c55e;
-
   box-shadow: 0 0 12px #22c55e;
-
-  flex-shrink: 0;
 }
 
-/* =========================================================
+/* =========================================
    HERO
-   ========================================================= */
+   ========================================= */
 
 .hero {
   min-height: 620px;
@@ -155,21 +108,12 @@ button {
 
   display: grid;
   grid-template-columns: 1.1fr 0.9fr;
-
   gap: 60px;
-
   align-items: center;
-}
-
-.hero-content {
-  position: relative;
-  z-index: 2;
 }
 
 .hero-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
+  display: inline-block;
 
   padding: 8px 14px;
 
@@ -179,23 +123,16 @@ button {
   background: rgba(14, 165, 233, 0.08);
 
   color: #38bdf8;
-
   font-size: 12px;
   font-weight: 800;
   letter-spacing: 1.5px;
-}
-
-.hero-badge span {
-  color: #22c55e;
 }
 
 .hero h1 {
   margin: 25px 0;
 
   font-size: clamp(48px, 6vw, 76px);
-
   line-height: 1.02;
-
   letter-spacing: -3px;
 }
 
@@ -212,12 +149,9 @@ button {
   line-height: 1.7;
 }
 
-.hero-actions,
 .hero-buttons {
   display: flex;
-
   gap: 15px;
-
   margin-top: 30px;
 }
 
@@ -231,27 +165,23 @@ button {
   font-weight: 800;
 
   cursor: pointer;
-
-  transition:
-    transform 0.25s ease,
-    box-shadow 0.25s ease,
-    background 0.25s ease;
 }
 
 .primary-button {
   border: none;
 
-  background:
-    linear-gradient(
-      135deg,
-      #0ea5e9,
-      #2563eb
-    );
+  background: linear-gradient(
+    135deg,
+    #0ea5e9,
+    #2563eb
+  );
 
   color: white;
 
   box-shadow:
     0 10px 30px rgba(14, 165, 233, 0.25);
+
+  transition: 0.25s;
 }
 
 .primary-button:hover {
@@ -259,16 +189,6 @@ button {
 
   box-shadow:
     0 15px 35px rgba(14, 165, 233, 0.4);
-}
-
-.primary-button:disabled {
-  opacity: 0.65;
-
-  cursor: not-allowed;
-
-  transform: none;
-
-  box-shadow: none;
 }
 
 .secondary-button {
@@ -279,68 +199,22 @@ button {
   color: #e2e8f0;
 }
 
-.secondary-button:hover {
-  background: rgba(30, 41, 59, 0.9);
-
-  transform: translateY(-2px);
-}
-
-.small-button,
 .primary-button.small {
   padding: 11px 18px;
 }
 
-/* =========================================================
+/* =========================================
    HERO VISUAL
-   ========================================================= */
+   ========================================= */
 
 .hero-visual {
   position: relative;
 
   display: flex;
-
   align-items: center;
   justify-content: center;
 
   min-height: 420px;
-}
-
-.hero-visual::before,
-.hero-visual::after {
-  content: "";
-
-  position: absolute;
-
-  left: 50%;
-  top: 50%;
-
-  border-radius: 50%;
-
-  pointer-events: none;
-
-  transform: translate(-50%, -50%);
-}
-
-.hero-visual::before {
-  width: 390px;
-  height: 390px;
-
-  border: 1px solid rgba(56, 189, 248, 0.22);
-
-  box-shadow:
-    0 0 35px rgba(14, 165, 233, 0.12),
-    inset 0 0 35px rgba(14, 165, 233, 0.05);
-
-  animation: heroRadarPulse 3s ease-in-out infinite;
-}
-
-.hero-visual::after {
-  width: 450px;
-  height: 450px;
-
-  border: 1px dashed rgba(56, 189, 248, 0.12);
-
-  animation: heroRadarSpin 14s linear infinite;
 }
 
 .ocean-circle {
@@ -348,10 +222,8 @@ button {
   height: 330px;
 
   position: relative;
-  z-index: 2;
 
   display: flex;
-
   align-items: center;
   justify-content: center;
 
@@ -370,8 +242,6 @@ button {
 
   box-shadow:
     0 0 80px rgba(14, 165, 233, 0.25);
-
-  animation: oceanPulse 3s ease-in-out infinite;
 }
 
 .wave {
@@ -387,49 +257,14 @@ button {
 
 .wave-one {
   transform: rotate(-15deg);
-
-  animation: waveMoveOne 4s ease-in-out infinite;
 }
 
 .wave-two {
   transform: rotate(10deg);
-
-  animation: waveMoveTwo 5s ease-in-out infinite;
 }
 
 .wave-three {
   transform: rotate(30deg);
-
-  animation: waveMoveThree 6s ease-in-out infinite;
-}
-
-.wave-ring {
-  position: absolute;
-
-  width: 250px;
-  height: 100px;
-
-  border: 2px solid rgba(255, 255, 255, 0.18);
-
-  border-radius: 50%;
-}
-
-.ring-one {
-  transform: rotate(-15deg);
-
-  animation: waveMoveOne 4s ease-in-out infinite;
-}
-
-.ring-two {
-  transform: rotate(10deg);
-
-  animation: waveMoveTwo 5s ease-in-out infinite;
-}
-
-.ring-three {
-  transform: rotate(30deg);
-
-  animation: waveMoveThree 6s ease-in-out infinite;
 }
 
 .location-pin {
@@ -437,15 +272,11 @@ button {
 
   font-size: 60px;
 
-  animation: locationPulse 1.8s ease-in-out infinite;
-
-  filter:
-    drop-shadow(
-      0 10px 15px rgba(0, 0, 0, 0.3)
-    );
+  filter: drop-shadow(
+    0 10px 15px rgba(0, 0, 0, 0.3)
+  );
 }
 
-.floating-alert,
 .floating-card {
   position: absolute;
 
@@ -456,58 +287,14 @@ button {
 
   padding: 18px;
 
-  display: flex;
-
-  align-items: center;
-
-  gap: 10px;
-
   border: 1px solid rgba(56, 189, 248, 0.25);
-
   border-radius: 15px;
 
-  background: rgba(8, 25, 43, 0.88);
-
+  background: rgba(8, 25, 43, 0.85);
   backdrop-filter: blur(15px);
 
   box-shadow:
     0 20px 50px rgba(0, 0, 0, 0.3);
-
-  z-index: 4;
-
-  animation: alertFloat 3.2s ease-in-out infinite;
-}
-
-.alert-pulse {
-  width: 10px;
-  height: 10px;
-
-  flex-shrink: 0;
-
-  border-radius: 50%;
-
-  background: #ef4444;
-
-  box-shadow:
-    0 0 0 6px rgba(239, 68, 68, 0.12),
-    0 0 15px #ef4444;
-}
-
-.floating-alert strong,
-.floating-card strong {
-  display: block;
-
-  margin-bottom: 5px;
-
-  font-size: 14px;
-}
-
-.floating-alert small,
-.floating-card small,
-.floating-card span:last-child {
-  color: #94a3b8;
-
-  font-size: 11px;
 }
 
 .small-label {
@@ -518,23 +305,31 @@ button {
   color: #f87171;
 
   font-size: 10px;
-
   font-weight: 800;
-
   letter-spacing: 1px;
-
-  animation: alertBlink 1.8s ease-in-out infinite;
 }
 
-/* =========================================================
+.floating-card strong {
+  display: block;
+
+  margin-bottom: 7px;
+
+  font-size: 15px;
+}
+
+.floating-card span:last-child {
+  color: #94a3b8;
+  font-size: 12px;
+}
+
+/* =========================================
    STATISTICS
-   ========================================================= */
+   ========================================= */
 
 .stats {
   padding: 0 7% 70px;
 
   display: grid;
-
   grid-template-columns: repeat(4, 1fr);
 
   gap: 18px;
@@ -544,28 +339,15 @@ button {
   padding: 24px;
 
   display: flex;
-
   align-items: center;
-
   gap: 15px;
 
   border: 1px solid rgba(148, 163, 184, 0.12);
-
   border-radius: 18px;
 
   background: rgba(15, 30, 48, 0.65);
 
   backdrop-filter: blur(12px);
-
-  transition:
-    transform 0.25s ease,
-    border-color 0.25s ease;
-}
-
-.stat-card:hover {
-  transform: translateY(-3px);
-
-  border-color: rgba(56, 189, 248, 0.25);
 }
 
 .stat-icon {
@@ -573,17 +355,12 @@ button {
   height: 50px;
 
   display: flex;
-
   align-items: center;
   justify-content: center;
 
   border-radius: 13px;
 
-  background: rgba(14, 165, 233, 0.12);
-
   font-size: 21px;
-
-  flex-shrink: 0;
 }
 
 .stat-icon.red {
@@ -602,23 +379,23 @@ button {
   background: rgba(14, 165, 233, 0.12);
 }
 
-.stat-card strong {
+.stat-card span {
   display: block;
 
   margin-bottom: 5px;
 
-  font-size: 27px;
-}
-
-.stat-card small {
   color: #64748b;
 
   font-size: 12px;
 }
 
-/* =========================================================
+.stat-card strong {
+  font-size: 27px;
+}
+
+/* =========================================
    COMMON SECTIONS
-   ========================================================= */
+   ========================================= */
 
 .monitoring,
 .reports {
@@ -627,26 +404,16 @@ button {
 
 .section-heading {
   display: flex;
-
   align-items: flex-end;
   justify-content: space-between;
 
   margin-bottom: 30px;
 }
 
-.section-heading.centered,
-.center {
-  display: block;
-
-  text-align: center;
-}
-
-.section-label,
 .section-tag {
   color: #38bdf8;
 
   font-size: 11px;
-
   font-weight: 800;
 
   letter-spacing: 2px;
@@ -668,9 +435,7 @@ button {
 
 .live-status {
   display: flex;
-
   align-items: center;
-
   gap: 8px;
 
   padding: 8px 13px;
@@ -682,11 +447,9 @@ button {
   color: #86efac;
 
   font-size: 11px;
-
   font-weight: 800;
 }
 
-.live-status .live-dot,
 .live-status span {
   width: 7px;
   height: 7px;
@@ -696,9 +459,9 @@ button {
   background: #22c55e;
 }
 
-/* =========================================================
+/* =========================================
    MONITORING GRID
-   ========================================================= */
+   ========================================= */
 
 .monitor-grid {
   display: grid;
@@ -713,7 +476,6 @@ button {
   padding: 25px;
 
   border: 1px solid rgba(148, 163, 184, 0.12);
-
   border-radius: 20px;
 
   background: rgba(15, 30, 48, 0.65);
@@ -721,39 +483,24 @@ button {
   backdrop-filter: blur(12px);
 }
 
-.map-card {
-  min-width: 0;
-}
-
-.map-card-header,
 .map-header,
-.alert-card-header,
 .alert-header {
   display: flex;
-
   align-items: center;
   justify-content: space-between;
-
-  gap: 20px;
 
   margin-bottom: 20px;
 }
 
-.map-card-header strong,
 .map-header h3,
-.alert-card-header h3,
 .alert-header h3 {
-  display: block;
-
   margin: 0 0 5px;
 
   font-size: 18px;
 }
 
-.map-card-header small,
 .map-header span {
   color: #64748b;
-
   font-size: 12px;
 }
 
@@ -761,7 +508,6 @@ button {
   padding: 8px 12px;
 
   border: 1px solid rgba(148, 163, 184, 0.15);
-
   border-radius: 8px;
 
   background: transparent;
@@ -769,255 +515,13 @@ button {
   color: #94a3b8;
 
   font-size: 11px;
-
-  cursor: pointer;
-
-  transition: 0.2s ease;
-
-  white-space: nowrap;
 }
 
-.map-button:hover {
-  border-color: rgba(56, 189, 248, 0.5);
-
-  color: #38bdf8;
-
-  background: rgba(56, 189, 248, 0.05);
-}
-
-/* =========================================================
-   REAL AMAZON LOCATION MAP
-   IMPORTANT: DESKTOP HEIGHT IS DEFINED HERE
-   ========================================================= */
-
-.real-map-wrapper {
-  position: relative;
-
-  width: 100%;
-
-  height: 400px;
-
-  min-height: 400px;
-
-  overflow: hidden;
-
-  border-radius: 15px;
-
-  background: #082f49;
-}
-
-.real-map {
-  position: absolute;
-
-  inset: 0;
-
-  width: 100%;
-
-  height: 100%;
-
-  min-height: 400px;
-
-  overflow: hidden;
-
-  border-radius: 15px;
-
-  background: #082f49;
-}
-
-.real-map .maplibregl-map {
-  width: 100% !important;
-
-  height: 100% !important;
-}
-
-.real-map .maplibregl-canvas {
-  width: 100% !important;
-
-  height: 100% !important;
-
-  outline: none;
-}
-
-.real-map .maplibregl-ctrl-group {
-  background: rgba(6, 17, 31, 0.92);
-
-  border: 1px solid rgba(148, 163, 184, 0.2);
-
-  border-radius: 10px;
-
-  overflow: hidden;
-
-  box-shadow:
-    0 8px 25px rgba(0, 0, 0, 0.25);
-}
-
-.real-map .maplibregl-ctrl-group button {
-  margin: 0;
-
-  width: 32px;
-  height: 32px;
-
-  background-color: transparent;
-}
-
-.real-map .maplibregl-ctrl-group button:hover {
-  background-color: rgba(56, 189, 248, 0.15);
-}
-
-.real-map .maplibregl-ctrl-attrib {
-  background: rgba(6, 17, 31, 0.75);
-
-  color: #94a3b8;
-}
-
-.real-map .maplibregl-ctrl-attrib a {
-  color: #94a3b8;
-}
-
-/* =========================================================
-   MAP LOADING STATE
-   ========================================================= */
-
-.map-loading {
-  position: absolute;
-
-  inset: 0;
-
-  z-index: 10;
-
-  display: flex;
-
-  flex-direction: column;
-
-  align-items: center;
-  justify-content: center;
-
-  gap: 10px;
-
-  background:
-    radial-gradient(
-      circle at center,
-      rgba(14, 116, 144, 0.35),
-      rgba(3, 15, 30, 0.95)
-    );
-
-  color: #f8fafc;
-
-  pointer-events: none;
-}
-
-.map-loading strong {
-  font-size: 15px;
-}
-
-.map-loading small {
-  color: #94a3b8;
-
-  font-size: 12px;
-}
-
-.map-loading-spinner {
-  width: 35px;
-  height: 35px;
-
-  border: 3px solid rgba(255, 255, 255, 0.15);
-
-  border-top-color: #38bdf8;
-
-  border-radius: 50%;
-
-  animation: mapSpinner 0.8s linear infinite;
-}
-
-@keyframes mapSpinner {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-/* =========================================================
-   MAP LEGEND
-   ========================================================= */
-
-.map-legend {
-  display: flex;
-
-  align-items: center;
-
-  gap: 20px;
-
-  margin-top: 15px;
-
-  flex-wrap: wrap;
-}
-
-.map-legend > div {
-  display: flex;
-
-  align-items: center;
-
-  gap: 6px;
-
-  color: #64748b;
-
-  font-size: 11px;
-}
-
-.map-legend span {
-  display: inline-flex;
-
-  align-items: center;
-
-  gap: 6px;
-
-  color: #64748b;
-
-  font-size: 11px;
-}
-
-.legend-dot {
-  width: 8px;
-  height: 8px;
-
-  display: inline-block;
-
-  border-radius: 50%;
-
-  flex-shrink: 0;
-}
-
-.legend-dot.high,
-.legend-red {
-  background: #ef4444;
-}
-
-.legend-dot.medium,
-.legend-orange {
-  background: #f97316;
-}
-
-.legend-dot.low,
-.legend-green {
-  background: #22c55e;
-}
-
-.map-legend i {
-  width: 7px;
-  height: 7px;
-
-  display: inline-block;
-
-  border-radius: 50%;
-}
-
-/* =========================================================
-   OLD FAKE MAP SUPPORT
-   Kept so nothing breaks if old markup exists.
-   ========================================================= */
+/* =========================================
+   MAP
+   ========================================= */
 
 .fake-map {
-  width: 100%;
-
   height: 330px;
 
   position: relative;
@@ -1037,7 +541,6 @@ button {
 
 .map-grid {
   position: absolute;
-
   inset: 0;
 
   opacity: 0.2;
@@ -1083,7 +586,6 @@ button {
   border-radius: 50%;
 
   display: flex;
-
   align-items: center;
   justify-content: center;
 
@@ -1178,16 +680,52 @@ button {
   opacity: 0.4;
 }
 
-/* =========================================================
+.map-legend {
+  display: flex;
+
+  gap: 20px;
+
+  margin-top: 15px;
+}
+
+.map-legend span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+
+  color: #64748b;
+
+  font-size: 11px;
+}
+
+.map-legend i {
+  width: 7px;
+  height: 7px;
+
+  border-radius: 50%;
+}
+
+.legend-red {
+  background: #ef4444;
+}
+
+.legend-orange {
+  background: #f97316;
+}
+
+.legend-green {
+  background: #22c55e;
+}
+
+/* =========================================
    ALERTS
-   ========================================================= */
+   ========================================= */
 
 .alert-count {
   width: 28px;
   height: 28px;
 
   display: flex;
-
   align-items: center;
   justify-content: center;
 
@@ -1198,17 +736,11 @@ button {
   color: #f87171;
 
   font-size: 12px;
-
   font-weight: 800;
-}
-
-.alert-list {
-  width: 100%;
 }
 
 .alert-item {
   display: flex;
-
   gap: 13px;
 
   padding: 17px 0;
@@ -1225,44 +757,48 @@ button {
   height: 40px;
 
   display: flex;
-
   align-items: center;
   justify-content: center;
-
-  flex-shrink: 0;
 
   border-radius: 10px;
 
   background: rgba(14, 165, 233, 0.08);
 }
 
-.alert-item strong {
+.alert-item strong,
+.alert-item span,
+.alert-item small {
   display: block;
+}
 
+.alert-item strong {
   font-size: 13px;
 }
 
-.alert-item small {
-  display: block;
+.alert-item span {
+  margin-top: 4px;
 
+  color: #94a3b8;
+
+  font-size: 11px;
+}
+
+.alert-item small {
   margin-top: 5px;
 
-  color: #64748b;
+  color: #475569;
 
   font-size: 10px;
 }
 
-/* =========================================================
-   REPORTS
-   ========================================================= */
+/* =========================================
+   REPORTS TABLE
+   ========================================= */
 
 .reports-table {
-  width: 100%;
-
   overflow: hidden;
 
   border: 1px solid rgba(148, 163, 184, 0.12);
-
   border-radius: 18px;
 
   background: rgba(15, 30, 48, 0.65);
@@ -1277,7 +813,7 @@ button {
     1.2fr
     0.8fr
     1fr
-    0.9fr;
+    0.7fr;
 
   align-items: center;
 
@@ -1292,7 +828,6 @@ button {
   color: #475569;
 
   font-size: 10px;
-
   font-weight: 800;
 
   letter-spacing: 1px;
@@ -1300,29 +835,11 @@ button {
 
 .report-row {
   border-top: 1px solid rgba(148, 163, 184, 0.08);
-
-  color: #cbd5e1;
-
-  font-size: 12px;
-}
-
-.report-hazard {
-  color: #f8fafc;
-
-  font-weight: 700;
-}
-
-.report-time {
-  color: #64748b;
-
-  font-size: 10px;
 }
 
 .hazard-name {
   display: flex;
-
   align-items: center;
-
   gap: 12px;
 }
 
@@ -1331,13 +848,16 @@ button {
   height: 35px;
 
   display: flex;
-
   align-items: center;
   justify-content: center;
 
   border-radius: 9px;
 
   background: rgba(14, 165, 233, 0.08);
+}
+
+.hazard-name strong {
+  font-size: 13px;
 }
 
 .location,
@@ -1348,7 +868,6 @@ button {
 }
 
 .severity,
-.status,
 .report-status {
   width: fit-content;
 
@@ -1357,97 +876,60 @@ button {
   border-radius: 20px;
 
   font-size: 10px;
-
   font-weight: 800;
 }
 
 .severity.high {
   background: rgba(239, 68, 68, 0.1);
-
   color: #f87171;
 }
 
 .severity.medium {
   background: rgba(249, 115, 22, 0.1);
-
   color: #fb923c;
 }
 
 .severity.low {
   background: rgba(34, 197, 94, 0.1);
-
   color: #4ade80;
 }
 
-.status.active,
 .report-status.active {
   background: rgba(239, 68, 68, 0.08);
-
   color: #f87171;
 }
 
-.status.under-review,
 .report-status.under-review {
   background: rgba(249, 115, 22, 0.08);
-
   color: #fb923c;
 }
 
-.status.resolved,
 .report-status.resolved {
   background: rgba(34, 197, 94, 0.08);
-
   color: #4ade80;
 }
 
-.empty-reports {
-  padding: 55px 20px;
-
-  display: flex;
-
-  flex-direction: column;
-
-  align-items: center;
-
-  justify-content: center;
-
-  text-align: center;
-}
-
-.empty-reports > div {
-  margin-bottom: 12px;
-
-  font-size: 38px;
-}
-
-.empty-reports strong {
-  font-size: 17px;
-}
-
-.empty-reports p {
-  margin: 7px 0 20px;
-
-  color: #64748b;
-
-  font-size: 12px;
-}
-
-/* =========================================================
-   AWS ARCHITECTURE
-   ========================================================= */
+/* =========================================
+   AWS SECTION
+   ========================================= */
 
 .aws-section {
   padding: 80px 7%;
 
   border-top: 1px solid rgba(148, 163, 184, 0.08);
-
   border-bottom: 1px solid rgba(148, 163, 184, 0.08);
 
   background: rgba(8, 47, 73, 0.15);
 }
 
+.center {
+  display: block;
+
+  text-align: center;
+}
+
 .aws-services {
-  max-width: 1100px;
+  max-width: 900px;
 
   margin: 40px auto 0;
 
@@ -1458,68 +940,41 @@ button {
   gap: 12px;
 }
 
-.aws-service,
 .aws-services div {
-  min-height: 105px;
-
   padding: 18px 10px;
 
   display: flex;
-
   flex-direction: column;
-
   align-items: center;
-
-  justify-content: center;
-
   gap: 8px;
 
   border: 1px solid rgba(148, 163, 184, 0.1);
-
   border-radius: 12px;
 
   background: rgba(15, 30, 48, 0.5);
-
-  text-align: center;
-
-  transition:
-    transform 0.2s ease,
-    border-color 0.2s ease;
 }
 
-.aws-service:hover,
-.aws-services div:hover {
-  transform: translateY(-3px);
-
-  border-color: rgba(56, 189, 248, 0.3);
-}
-
-.aws-service strong,
 .aws-services strong {
   color: #38bdf8;
 
-  font-size: 14px;
+  font-size: 20px;
 }
 
-.aws-service small,
 .aws-services span {
   color: #94a3b8;
 
   font-size: 10px;
 }
 
-/* =========================================================
+/* =========================================
    FOOTER
-   ========================================================= */
+   ========================================= */
 
-.footer,
 footer {
   padding: 30px 7%;
 
   display: flex;
-
   justify-content: space-between;
-
   align-items: center;
 
   color: #475569;
@@ -1527,42 +982,25 @@ footer {
   font-size: 11px;
 }
 
-.footer strong,
 .footer-logo {
-  display: block;
-
   color: #38bdf8;
 
   font-weight: 800;
-
   letter-spacing: 1px;
 }
 
-.footer span {
-  display: block;
-
-  margin-top: 4px;
-
-  color: #64748b;
-}
-
-.footer p {
-  margin: 0;
-}
-
-/* =========================================================
+/* =========================================
    MODAL
-   ========================================================= */
+   ========================================= */
 
 .modal-overlay {
   position: fixed;
 
   inset: 0;
 
-  z-index: 1000;
+  z-index: 100;
 
   display: flex;
-
   align-items: center;
   justify-content: center;
 
@@ -1576,16 +1014,11 @@ footer {
 .modal {
   width: min(500px, 100%);
 
-  max-height: 90vh;
-
-  overflow-y: auto;
-
   position: relative;
 
   padding: 30px;
 
   border: 1px solid rgba(56, 189, 248, 0.2);
-
   border-radius: 20px;
 
   background: #0b1b30;
@@ -1609,22 +1042,6 @@ footer {
   font-size: 25px;
 
   cursor: pointer;
-
-  transition: color 0.2s ease;
-}
-
-.close-button:hover {
-  color: #f8fafc;
-}
-
-.close-button:disabled {
-  cursor: not-allowed;
-
-  opacity: 0.5;
-}
-
-.modal-header {
-  margin-bottom: 20px;
 }
 
 .modal-icon {
@@ -1641,30 +1058,19 @@ footer {
   color: #64748b;
 
   font-size: 13px;
-
   line-height: 1.6;
-}
-
-.form-group {
-  margin-top: 18px;
 }
 
 .modal label {
   display: block;
 
+  margin-top: 18px;
   margin-bottom: 7px;
 
   color: #cbd5e1;
 
   font-size: 12px;
-
   font-weight: 700;
-}
-
-.modal label span {
-  color: #64748b;
-
-  font-weight: 400;
 }
 
 .modal input,
@@ -1675,7 +1081,6 @@ footer {
   padding: 12px;
 
   border: 1px solid rgba(148, 163, 184, 0.15);
-
   border-radius: 9px;
 
   outline: none;
@@ -1685,100 +1090,30 @@ footer {
   color: #f8fafc;
 
   font-size: 13px;
+}
 
-  transition:
-    border-color 0.2s ease,
-    box-shadow 0.2s ease;
+.modal textarea {
+  resize: vertical;
 }
 
 .modal input:focus,
 .modal textarea:focus,
 .modal select:focus {
   border-color: #0ea5e9;
-
-  box-shadow:
-    0 0 0 3px rgba(14, 165, 233, 0.08);
 }
 
-.modal textarea {
-  resize: vertical;
-
-  min-height: 110px;
-}
-
-.modal input[type="file"] {
-  padding: 10px;
-}
-
-.form-group small {
-  display: block;
-
-  margin-top: 6px;
-
-  color: #64748b;
-
-  font-size: 10px;
-}
-
-.submit-button,
 .submit {
   width: 100%;
 
   margin-top: 22px;
 }
 
-/* =========================================================
-   EXPANDED MAP
-   ========================================================= */
-
-.map-card.expanded {
-  position: fixed;
-
-  inset: 20px;
-
-  z-index: 9999;
-
-  padding: 25px;
-
-  background: #0b1b30;
-
-  border: 1px solid rgba(56, 189, 248, 0.25);
-
-  box-shadow:
-    0 30px 100px rgba(0, 0, 0, 0.7);
-}
-
-.map-card.expanded .real-map-wrapper {
-  height: calc(100vh - 170px);
-
-  min-height: 400px;
-}
-
-.map-card.expanded .real-map {
-  height: 100%;
-
-  min-height: 400px;
-}
-
-/* =========================================================
-   RESPONSIVE - TABLET
-   ========================================================= */
-
-@media (max-width: 1100px) {
-  .hero {
-    gap: 35px;
-  }
-
-  .aws-services {
-    grid-template-columns: repeat(3, 1fr);
-  }
-}
-
-/* =========================================================
-   RESPONSIVE - 900px
-   ========================================================= */
+/* =========================================
+   MOBILE
+   ========================================= */
 
 @media (max-width: 900px) {
+
   .hero {
     grid-template-columns: 1fr;
 
@@ -1797,6 +1132,10 @@ footer {
     grid-template-columns: 1fr;
   }
 
+  .aws-services {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
   .table-header {
     display: none;
   }
@@ -1804,20 +1143,11 @@ footer {
   .report-row {
     grid-template-columns: 1fr 1fr;
   }
-
-  .aws-services {
-    grid-template-columns: repeat(3, 1fr);
-  }
 }
 
-/* =========================================================
-   RESPONSIVE - 600px
-   ========================================================= */
-
 @media (max-width: 600px) {
-  .navbar {
-    height: 70px;
 
+  .navbar {
     padding: 0 20px;
   }
 
@@ -1826,57 +1156,19 @@ footer {
   }
 
   .hero {
-    min-height: auto;
-
     padding: 55px 20px;
   }
 
   .hero h1 {
     font-size: 48px;
-
-    letter-spacing: -2px;
   }
 
-  .hero p {
-    font-size: 16px;
-  }
-
-  .hero-actions,
   .hero-buttons {
     flex-direction: column;
   }
 
-  .hero-actions button,
   .hero-buttons button {
     width: 100%;
-  }
-
-  .hero-visual {
-    min-height: 330px;
-  }
-
-  .hero-visual::before {
-    width: 300px;
-    height: 300px;
-  }
-
-  .hero-visual::after {
-    width: 350px;
-    height: 350px;
-  }
-
-  .ocean-circle {
-    width: 270px;
-    height: 270px;
-  }
-
-  .floating-alert,
-  .floating-card {
-    right: 5px;
-
-    width: 190px;
-
-    padding: 14px;
   }
 
   .stats {
@@ -1898,48 +1190,8 @@ footer {
     gap: 15px;
   }
 
-  .section-heading h2 {
-    font-size: 28px;
-  }
-
   .fake-map {
     height: 260px;
-  }
-
-  /* REAL MAP MOBILE HEIGHT */
-
-  .real-map-wrapper {
-    height: 280px;
-
-    min-height: 280px;
-  }
-
-  .real-map {
-    height: 100%;
-
-    min-height: 280px;
-  }
-
-  .map-card {
-    padding: 18px;
-  }
-
-  .map-card.expanded {
-    inset: 10px;
-
-    padding: 15px;
-  }
-
-  .map-card.expanded .real-map-wrapper {
-    height: calc(100vh - 130px);
-
-    min-height: 300px;
-  }
-
-  .map-card.expanded .real-map {
-    height: 100%;
-
-    min-height: 300px;
   }
 
   .aws-section {
@@ -1950,228 +1202,121 @@ footer {
     grid-template-columns: repeat(2, 1fr);
   }
 
-  .aws-service,
-  .aws-services div {
-    min-height: 95px;
-  }
-
-  .footer,
   footer {
     padding: 25px 20px;
 
     flex-direction: column;
 
     gap: 10px;
-
-    text-align: center;
   }
 
   .report-row {
     grid-template-columns: 1fr;
 
     gap: 10px;
-
-    padding: 16px;
   }
 
-  .table-header {
-    display: none;
+  .floating-card {
+    right: 5px;
   }
 
-  .map-legend {
-    gap: 12px;
-  }
-}
-
-/* =========================================================
-   REDUCED MOTION
-   ========================================================= */
-
-@media (prefers-reduced-motion: reduce) {
-  .hero-visual::before,
-  .hero-visual::after,
-  .ocean-circle,
-  .wave-one,
-  .wave-two,
-  .wave-three,
-  .location-pin,
-  .floating-alert,
-  .floating-card,
-  .small-label,
-  .map-loading-spinner {
-    animation: none !important;
-  }
-
-  html {
-    scroll-behavior: auto;
+  .ocean-circle {
+    width: 270px;
+    height: 270px;
   }
 }
 
-/* =========================================================
-   HERO ANIMATIONS
-   ========================================================= */
+/* =========================================
+   REAL AMAZON LOCATION MAP
+   ========================================= */
 
-@keyframes heroRadarPulse {
-  0%,
-  100% {
-    opacity: 0.35;
+.real-map {
+  width: 100%;
+  height: 330px;
+  position: relative;
+  overflow: hidden;
+  border-radius: 15px;
+}
 
-    transform:
-      translate(-50%, -50%)
-      scale(0.94);
+.real-map .maplibregl-map {
+  width: 100%;
+  height: 100%;
+}
+
+.real-map .maplibregl-ctrl-group {
+  background: rgba(6, 17, 31, 0.9);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.real-map .maplibregl-ctrl-group button {
+  margin: 0;
+  width: 30px;
+  height: 30px;
+  background-color: transparent;
+}
+
+.real-map .maplibregl-ctrl-group button:hover {
+  background-color: rgba(56, 189, 248, 0.15);
+}
+
+.map-card.expanded {
+  position: fixed;
+  inset: 20px;
+  z-index: 9999;
+  padding: 25px;
+  background: #0b1b30;
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  box-shadow: 0 30px 100px rgba(0, 0, 0, 0.7);
+}
+
+.map-card.expanded .real-map {
+  height: calc(100vh - 150px);
+}
+
+.map-button {
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+
+.map-button:hover {
+  border-color: rgba(56, 189, 248, 0.5);
+  color: #38bdf8;
+}
+
+@media (max-width: 600px) {
+  .real-map {
+    height: 260px;
   }
 
-  50% {
-    opacity: 1;
+  .map-card.expanded {
+    inset: 10px;
+    padding: 15px;
+  }
 
-    transform:
-      translate(-50%, -50%)
-      scale(1.04);
+  .map-card.expanded .real-map {
+    height: calc(100vh - 120px);
   }
 }
 
-@keyframes heroRadarSpin {
-  from {
-    transform:
-      translate(-50%, -50%)
-      rotate(0deg);
-  }
 
-  to {
-    transform:
-      translate(-50%, -50%)
-      rotate(360deg);
-  }
-}
-
-@keyframes oceanPulse {
-  0%,
-  100% {
-    box-shadow:
-      0 0 60px rgba(14, 165, 233, 0.22),
-      0 0 100px rgba(14, 165, 233, 0.05);
-  }
-
-  50% {
-    box-shadow:
-      0 0 95px rgba(14, 165, 233, 0.42),
-      0 0 145px rgba(14, 165, 233, 0.12);
-  }
-}
-
-@keyframes waveMoveOne {
-  0%,
-  100% {
-    transform:
-      rotate(-15deg)
-      translateX(-18px)
-      scale(0.98);
-
-    opacity: 0.55;
-  }
-
-  50% {
-    transform:
-      rotate(-15deg)
-      translateX(18px)
-      scale(1.03);
-
-    opacity: 1;
-  }
-}
-
-@keyframes waveMoveTwo {
-  0%,
-  100% {
-    transform:
-      rotate(10deg)
-      translateX(18px)
-      scale(1.02);
-
-    opacity: 0.45;
-  }
-
-  50% {
-    transform:
-      rotate(10deg)
-      translateX(-18px)
-      scale(0.97);
-
-    opacity: 0.9;
-  }
-}
-
-@keyframes waveMoveThree {
-  0%,
-  100% {
-    transform:
-      rotate(30deg)
-      translateX(-14px);
-
-    opacity: 0.4;
-  }
-
-  50% {
-    transform:
-      rotate(30deg)
-      translateX(14px);
-
-    opacity: 0.85;
-  }
-}
-
-@keyframes locationPulse {
-  0%,
-  100% {
-    transform:
-      translateY(0)
-      scale(1);
-
-    filter:
-      drop-shadow(
-        0 10px 15px rgba(0, 0, 0, 0.3)
-      );
-  }
-
-  50% {
-    transform:
-      translateY(-10px)
-      scale(1.08);
-
-    filter:
-      drop-shadow(
-        0 10px 15px rgba(0, 0, 0, 0.3)
-      )
-      drop-shadow(
-        0 0 18px rgba(248, 113, 113, 0.65)
-      );
-  }
-}
-
-@keyframes alertFloat {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-
-  50% {
-    transform: translateY(-10px);
-  }
-}
-
-@keyframes alertBlink {
-  0%,
-  100% {
-    opacity: 1;
-
-    text-shadow:
-      0 0 0 rgba(248, 113, 113, 0);
-  }
-
-  50% {
-    opacity: 0.65;
-
-    text-shadow:
-      0 0 12px rgba(248, 113, 113, 0.65);
-  }
-}
+/* =========================================
+   WAVE WATCH HERO ANIMATION Ã¢â‚¬â€ FINAL
+   ========================================= */
+.hero-visual::before,.hero-visual::after{content:"";position:absolute;left:50%;top:50%;border-radius:50%;pointer-events:none;transform:translate(-50%,-50%)}
+.hero-visual::before{width:390px;height:390px;border:1px solid rgba(56,189,248,.22);box-shadow:0 0 35px rgba(14,165,233,.12),inset 0 0 35px rgba(14,165,233,.05);animation:heroRadarPulse 3s ease-in-out infinite}
+.hero-visual::after{width:450px;height:450px;border:1px dashed rgba(56,189,248,.12);animation:heroRadarSpin 14s linear infinite}
+.ocean-circle{z-index:2;animation:oceanPulse 3s ease-in-out infinite}
+.wave-one{animation:waveMoveOne 4s ease-in-out infinite}.wave-two{animation:waveMoveTwo 5s ease-in-out infinite}.wave-three{animation:waveMoveThree 6s ease-in-out infinite}
+.location-pin{animation:locationPulse 1.8s ease-in-out infinite}.floating-card{z-index:4;animation:alertFloat 3.2s ease-in-out infinite}.small-label{animation:alertBlink 1.8s ease-in-out infinite}
+@keyframes heroRadarPulse{0%,100%{opacity:.35;transform:translate(-50%,-50%) scale(.94)}50%{opacity:1;transform:translate(-50%,-50%) scale(1.04)}}
+@keyframes heroRadarSpin{from{transform:translate(-50%,-50%) rotate(0deg)}to{transform:translate(-50%,-50%) rotate(360deg)}}
+@keyframes oceanPulse{0%,100%{box-shadow:0 0 60px rgba(14,165,233,.22),0 0 100px rgba(14,165,233,.05)}50%{box-shadow:0 0 95px rgba(14,165,233,.42),0 0 145px rgba(14,165,233,.12)}}
+@keyframes waveMoveOne{0%,100%{transform:rotate(-15deg) translateX(-18px) scale(.98);opacity:.55}50%{transform:rotate(-15deg) translateX(18px) scale(1.03);opacity:1}}
+@keyframes waveMoveTwo{0%,100%{transform:rotate(10deg) translateX(18px) scale(1.02);opacity:.45}50%{transform:rotate(10deg) translateX(-18px) scale(.97);opacity:.9}}
+@keyframes waveMoveThree{0%,100%{transform:rotate(30deg) translateX(-14px);opacity:.4}50%{transform:rotate(30deg) translateX(14px);opacity:.85}}
+@keyframes locationPulse{0%,100%{transform:translateY(0) scale(1);filter:drop-shadow(0 10px 15px rgba(0,0,0,.3))}50%{transform:translateY(-10px) scale(1.08);filter:drop-shadow(0 10px 15px rgba(0,0,0,.3)) drop-shadow(0 0 18px rgba(248,113,113,.65))}}
+@keyframes alertFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+@keyframes alertBlink{0%,100%{opacity:1;text-shadow:0 0 0 rgba(248,113,113,0)}50%{opacity:.65;text-shadow:0 0 12px rgba(248,113,113,.65)}}
+@media (prefers-reduced-motion:reduce){.hero-visual::before,.hero-visual::after,.ocean-circle,.wave-one,.wave-two,.wave-three,.location-pin,.floating-card,.small-label{animation:none!important}}
