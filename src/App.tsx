@@ -32,6 +32,7 @@ function App() {
   // =========================================================
 
   const [hazardType, setHazardType] = useState("High Waves");
+  const [customHazardType, setCustomHazardType] = useState("");
   const [location, setLocation] = useState("");
   const [description, setDescription] = useState("");
   const [photoFile, setPhotoFile] = useState<File | null>(null);
@@ -389,6 +390,17 @@ function App() {
       // STEP 4: SEND REAL COORDINATES + PHOTO KEY TO API
       // -----------------------------------------------------
 
+      const finalHazardType =
+        hazardType === "Other"
+          ? customHazardType.trim()
+          : hazardType;
+
+      if (hazardType === "Other" && !finalHazardType) {
+        throw new Error(
+          "Please specify the coastal hazard type."
+        );
+      }
+
       const response = await fetch(
         "https://cw6ehoudu9.execute-api.ap-southeast-2.amazonaws.com/reports",
         {
@@ -399,7 +411,7 @@ function App() {
           },
 
           body: JSON.stringify({
-            hazardType: hazardType,
+            hazardType: finalHazardType,
             description: description,
 
             // Real location name
@@ -442,6 +454,7 @@ function App() {
 
       // Clear form
       setHazardType("High Waves");
+      setCustomHazardType("");
       setLocation("");
       setDescription("");
       setPhotoFile(null);
@@ -479,7 +492,7 @@ function App() {
         <div className="logo">
 
           <span className="logo-icon">
-            WW
+            🌊
           </span>
 
           <div>
@@ -506,29 +519,20 @@ function App() {
         <div className="hero-content">
 
           <div className="hero-badge">
-            ● REAL-TIME COASTAL INTELLIGENCE
+            🌊 REAL-TIME COASTAL MONITORING
           </div>
 
           <h1>
-            Monitor.
+            Stay Ahead of
             <br />
-            <span>Report. Respond.</span>
+            <span>Coastal Hazards.</span>
           </h1>
 
           <p>
-            Wave Watch provides real-time visibility into
-            coastal hazards across India, connecting citizen
-            reports with cloud-powered monitoring.
+            Wave Watch helps communities report, monitor
+            and manage coastal hazards using real-time
+            AWS cloud technology.
           </p>
-
-          <div className="hero-system-line">
-            <span>
-              <i></i>
-              SYSTEM OPERATIONAL
-            </span>
-            <span>INDIA COASTAL NETWORK</span>
-            <span>LIVE DATA</span>
-          </div>
 
           <div className="hero-buttons">
 
@@ -550,57 +554,34 @@ function App() {
 
         </div>
 
-        <div className="hero-visual radar-hero">
+        <div className="hero-visual">
 
-          <div className="radar-shell">
+          <div className="ocean-circle">
 
-            <div className="radar-grid"></div>
+            <div className="wave wave-one"></div>
+            <div className="wave wave-two"></div>
+            <div className="wave wave-three"></div>
 
-            <div className="radar-ring ring-1"></div>
-            <div className="radar-ring ring-2"></div>
-            <div className="radar-ring ring-3"></div>
-            <div className="radar-ring ring-4"></div>
-
-            <div className="radar-cross vertical"></div>
-            <div className="radar-cross horizontal"></div>
-
-            <div className="radar-sweep"></div>
-
-            <span className="radar-blip blip-1"></span>
-            <span className="radar-blip blip-2"></span>
-            <span className="radar-blip blip-3"></span>
-            <span className="radar-blip blip-4"></span>
-            <span className="radar-blip blip-5"></span>
-
-            <div className="radar-center">
-              <span></span>
-            </div>
-
-            <div className="radar-ticks">
-              <span></span><span></span><span></span><span></span>
-              <span></span><span></span><span></span><span></span>
-              <span></span><span></span><span></span><span></span>
+            <div className="location-pin">
+              📍
             </div>
 
           </div>
 
-          <div className="radar-status-card">
-            <div className="radar-status-top">
-              <span className="status-indicator"></span>
-              LIVE SCAN
-            </div>
+          <div className="floating-card">
 
-            <strong>COASTAL ACTIVITY</strong>
+            <span className="small-label">
+              ACTIVE ALERT
+            </span>
 
-            <div className="radar-status-line">
-              <span>Region</span>
-              <b>INDIA</b>
-            </div>
+            <strong>
+              High Wave Activity
+            </strong>
 
-            <div className="radar-status-line">
-              <span>Reports</span>
-              <b>{backendReports.length}</b>
-            </div>
+            <span>
+              📍 Marina Beach
+            </span>
+
           </div>
 
         </div>
@@ -1169,34 +1150,43 @@ function App() {
 
             <select
               value={hazardType}
-              onChange={(e) =>
-                setHazardType(
-                  e.target.value
-                )
-              }
+              onChange={(e) => {
+                setHazardType(e.target.value);
+                if (e.target.value !== "Other") {
+                  setCustomHazardType("");
+                }
+              }}
             >
-
-              <option>
-                High Waves
-              </option>
-
-              <option>
-                Coastal Flooding
-              </option>
-
-              <option>
-                Beach Erosion
-              </option>
-
-              <option>
-                Strong Winds
-              </option>
-
-              <option>
-                Other
-              </option>
-
+              <option>High Waves</option>
+              <option>Coastal Flooding</option>
+              <option>Beach Erosion</option>
+              <option>Strong Winds</option>
+              <option>Other</option>
             </select>
+
+            {hazardType === "Other" && (
+              <div className="custom-hazard-field">
+                <label htmlFor="custom-hazard-type">
+                  Specify Hazard Type
+                </label>
+
+                <input
+                  id="custom-hazard-type"
+                  type="text"
+                  placeholder="e.g. Oil spill, Tsunami warning, Jellyfish bloom"
+                  value={customHazardType}
+                  onChange={(e) =>
+                    setCustomHazardType(e.target.value)
+                  }
+                  maxLength={80}
+                  autoFocus
+                />
+
+                <span className="field-hint">
+                  Enter the specific coastal hazard you observed.
+                </span>
+              </div>
+            )}
 
             {/* LOCATION */}
 
