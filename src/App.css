@@ -1660,3 +1660,306 @@ select {
   font-size: 10px;
   line-height: 1.4;
 }
+
+
+/* =========================================================
+   WAVE WATCH â€” RADAR HERO
+   Visual-only override. Existing AWS/map/report styles remain unchanged.
+   ========================================================= */
+
+.hero {
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 78% 48%, rgba(0, 150, 210, 0.08), transparent 30%),
+    linear-gradient(135deg, #061a2b 0%, #07182a 55%, #071426 100%);
+}
+
+.hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: .18;
+  background-image:
+    linear-gradient(rgba(77, 180, 220, .055) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(77, 180, 220, .055) 1px, transparent 1px);
+  background-size: 70px 70px;
+}
+
+.hero-content,
+.hero-visual {
+  position: relative;
+  z-index: 2;
+}
+
+.hero-badge {
+  border-color: rgba(43, 193, 243, .32);
+  background: rgba(0, 160, 220, .055);
+  color: #45caff;
+}
+
+.hero h1 span {
+  color: #31b8f3;
+  text-shadow: 0 0 28px rgba(0, 177, 239, .12);
+}
+
+.hero p {
+  color: #91a8bb;
+}
+
+/* Remove the old hero artwork completely */
+.ocean-circle,
+.floating-card {
+  display: none !important;
+}
+
+.radar-hero {
+  min-height: 470px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.radar-shell {
+  position: relative;
+  width: min(430px, 76vw);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at center, rgba(0, 192, 255, .13) 0%, rgba(0, 106, 156, .055) 42%, rgba(2, 12, 23, .98) 76%);
+  border: 1px solid rgba(73, 201, 239, .36);
+  box-shadow: 0 0 35px rgba(0, 171, 225, .09), inset 0 0 55px rgba(0, 150, 210, .07);
+}
+
+.radar-grid {
+  position: absolute;
+  inset: 0;
+  opacity: .38;
+  background: repeating-conic-gradient(from 0deg, transparent 0deg, transparent 14deg, rgba(76, 202, 239, .16) 14.2deg, transparent 14.5deg);
+}
+
+.radar-ring {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  border: 1px solid rgba(65, 196, 236, .27);
+}
+
+.ring-1 { width: 25%; height: 25%; }
+.ring-2 { width: 48%; height: 48%; }
+.ring-3 { width: 71%; height: 71%; }
+.ring-4 { width: 92%; height: 92%; border-color: rgba(65, 196, 236, .36); }
+
+.radar-cross {
+  position: absolute;
+  pointer-events: none;
+}
+
+.radar-cross.horizontal {
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 1px;
+  transform: translateY(-50%);
+  background: linear-gradient(90deg, transparent, rgba(75, 202, 238, .45), transparent);
+}
+
+.radar-cross.vertical {
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 1px;
+  transform: translateX(-50%);
+  background: linear-gradient(180deg, transparent, rgba(75, 202, 238, .45), transparent);
+}
+
+.radar-sweep {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 50%;
+  height: 50%;
+  transform-origin: 0 100%;
+  background: conic-gradient(from -8deg, transparent 0deg, rgba(0, 191, 255, .04) 8deg, rgba(0, 211, 255, .34) 25deg, rgba(0, 226, 255, .88) 32deg, rgba(0, 191, 255, .03) 37deg, transparent 40deg);
+  clip-path: polygon(0 100%, 100% 0, 100% 100%);
+  animation: radarSweep 4s linear infinite;
+  filter: drop-shadow(0 0 12px rgba(0, 210, 255, .55));
+}
+
+@keyframes radarSweep {
+  from { transform: rotate(-35deg); }
+  to { transform: rotate(325deg); }
+}
+
+.radar-center {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 12px;
+  height: 12px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: #42ddff;
+  box-shadow: 0 0 8px #42ddff, 0 0 22px rgba(0, 211, 255, .8), 0 0 42px rgba(0, 191, 255, .45);
+  z-index: 5;
+}
+
+.radar-center span {
+  position: absolute;
+  inset: -7px;
+  border: 1px solid rgba(0, 211, 255, .4);
+  border-radius: 50%;
+  animation: centerPulse 2s ease-out infinite;
+}
+
+@keyframes centerPulse {
+  0% { transform: scale(.7); opacity: 1; }
+  100% { transform: scale(2); opacity: 0; }
+}
+
+.radar-blip {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #57ddff;
+  box-shadow: 0 0 7px #39d8ff, 0 0 18px rgba(0, 204, 255, .8);
+  z-index: 4;
+  animation: blipPulse 2.2s ease-in-out infinite;
+}
+
+.blip-1 { left: 35%; top: 27%; animation-delay: .2s; }
+.blip-2 { left: 61%; top: 34%; animation-delay: .8s; }
+.blip-3 { left: 28%; top: 56%; animation-delay: 1.2s; }
+.blip-4 { left: 67%; top: 63%; animation-delay: 1.6s; }
+.blip-5 { left: 48%; top: 22%; animation-delay: .5s; }
+
+@keyframes blipPulse {
+  0%, 100% { transform: scale(.65); opacity: .35; }
+  50% { transform: scale(1.5); opacity: 1; }
+}
+
+.radar-ticks {
+  position: absolute;
+  inset: 4px;
+  border-radius: 50%;
+  border: 1px dashed rgba(91, 210, 242, .4);
+  animation: radarTicks 20s linear infinite;
+}
+
+.radar-ticks span {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 1px;
+  height: 7px;
+  background: rgba(105, 218, 247, .75);
+  transform-origin: 0 207px;
+}
+
+.radar-ticks span:nth-child(1) { transform: rotate(0deg); }
+.radar-ticks span:nth-child(2) { transform: rotate(30deg); }
+.radar-ticks span:nth-child(3) { transform: rotate(60deg); }
+.radar-ticks span:nth-child(4) { transform: rotate(90deg); }
+.radar-ticks span:nth-child(5) { transform: rotate(120deg); }
+.radar-ticks span:nth-child(6) { transform: rotate(150deg); }
+.radar-ticks span:nth-child(7) { transform: rotate(180deg); }
+.radar-ticks span:nth-child(8) { transform: rotate(210deg); }
+.radar-ticks span:nth-child(9) { transform: rotate(240deg); }
+.radar-ticks span:nth-child(10) { transform: rotate(270deg); }
+.radar-ticks span:nth-child(11) { transform: rotate(300deg); }
+.radar-ticks span:nth-child(12) { transform: rotate(330deg); }
+
+@keyframes radarTicks {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(-360deg); }
+}
+
+.radar-status-card {
+  position: absolute;
+  right: -8px;
+  bottom: 25px;
+  width: 205px;
+  padding: 16px 17px;
+  border: 1px solid rgba(0, 191, 255, .22);
+  border-radius: 10px;
+  background: linear-gradient(145deg, rgba(5, 23, 39, .95), rgba(3, 15, 27, .95));
+  backdrop-filter: blur(16px);
+  box-shadow: 0 18px 45px rgba(0, 0, 0, .4), 0 0 30px rgba(0, 153, 204, .06);
+  z-index: 10;
+}
+
+.radar-status-top {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 10px;
+  color: #48d7ff;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+}
+
+.status-indicator {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #26e38b;
+  box-shadow: 0 0 9px rgba(38, 227, 139, .9);
+  animation: statusPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes statusPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .4; }
+}
+
+.radar-status-card strong {
+  display: block;
+  margin-bottom: 13px;
+  color: #e7f8ff;
+  font-size: 12px;
+  letter-spacing: 1px;
+}
+
+.radar-status-line {
+  display: flex;
+  justify-content: space-between;
+  padding-top: 8px;
+  margin-top: 8px;
+  border-top: 1px solid rgba(148, 163, 184, .09);
+  color: #627e95;
+  font-size: 10px;
+}
+
+.radar-status-line b {
+  color: #b8d8e7;
+}
+
+@media (max-width: 900px) {
+  .radar-hero { min-height: 420px; }
+  .radar-status-card { right: 2%; bottom: 5px; }
+}
+
+@media (max-width: 600px) {
+  .radar-shell { width: 320px; }
+  .radar-status-card { width: 175px; right: -2px; }
+  .radar-ticks span { transform-origin: 0 154px; }
+  .radar-ticks span:nth-child(1) { transform: rotate(0deg); }
+  .radar-ticks span:nth-child(2) { transform: rotate(30deg); }
+  .radar-ticks span:nth-child(3) { transform: rotate(60deg); }
+  .radar-ticks span:nth-child(4) { transform: rotate(90deg); }
+  .radar-ticks span:nth-child(5) { transform: rotate(120deg); }
+  .radar-ticks span:nth-child(6) { transform: rotate(150deg); }
+  .radar-ticks span:nth-child(7) { transform: rotate(180deg); }
+  .radar-ticks span:nth-child(8) { transform: rotate(210deg); }
+  .radar-ticks span:nth-child(9) { transform: rotate(240deg); }
+  .radar-ticks span:nth-child(10) { transform: rotate(270deg); }
+  .radar-ticks span:nth-child(11) { transform: rotate(300deg); }
+  .radar-ticks span:nth-child(12) { transform: rotate(330deg); }
+}
