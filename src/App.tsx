@@ -1039,8 +1039,8 @@ function App() {
             <span className="section-tag">CORRELATION ENGINE</span>
             <h2>Possible Incident Correlation</h2>
             <p>
-              Cross-check citizen reports with controlled external signals
-              using location, time, hazard type and keyword similarity.
+              Correlates each citizen hazard report with controlled external
+              signals using location, time, hazard type and keyword similarity.
             </p>
           </div>
 
@@ -1083,95 +1083,298 @@ function App() {
               No correlation analysis displayed yet.
             </strong>
             <span style={{ display: "block", marginTop: "6px" }}>
-              Run the correlation engine to compare citizen reports with the
-              controlled external-signal dataset.
+              Run the correlation engine to compare citizen hazard reports
+              against the controlled external-signal dataset.
             </span>
           </div>
         ) : (
-          <div style={{ display: "grid", gap: "12px" }}>
-            {correlationIncidents.map((incident) => (
-              <div
-                key={incident.reportId}
-                style={{
-                  padding: "18px",
-                  borderRadius: "14px",
-                  border: "1px solid rgba(56,189,248,0.18)",
-                  background: "rgba(15,23,42,0.55)",
-                }}
-              >
+          <div style={{ display: "grid", gap: "16px" }}>
+            {correlationIncidents.map((incident) => {
+              const citizenReport = backendReports.find(
+                (report) => report.reportId === incident.reportId
+              );
+
+              const reportedTime = citizenReport?.timestamp
+                ? new Date(citizenReport.timestamp).toLocaleString()
+                : "Time unavailable";
+
+              return (
                 <div
+                  key={incident.reportId}
                   style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    gap: "16px",
-                    flexWrap: "wrap",
+                    padding: "20px",
+                    borderRadius: "14px",
+                    border: "1px solid rgba(56,189,248,0.18)",
+                    background: "rgba(15,23,42,0.55)",
                   }}
                 >
-                  <div>
-                    <strong style={{ fontSize: "17px" }}>
-                      {incident.hazardType}
-                    </strong>
+                  {/* POSSIBLE INCIDENT HEADER */}
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "flex-start",
+                      gap: "16px",
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    <div>
+                      <div
+                        style={{
+                          color: "#67e8f9",
+                          fontSize: "11px",
+                          fontWeight: 800,
+                          letterSpacing: "0.12em",
+                          marginBottom: "6px",
+                        }}
+                      >
+                        POSSIBLE INCIDENT
+                      </div>
+                      <strong style={{ fontSize: "20px" }}>
+                        {incident.hazardType}
+                      </strong>
+                      <div
+                        style={{
+                          marginTop: "6px",
+                          color: "#94a3b8",
+                          fontSize: "13px",
+                        }}
+                      >
+                        Incident ID: {incident.reportId}
+                      </div>
+                    </div>
+
+                    <div style={{ textAlign: "right" }}>
+                      <strong style={{ fontSize: "28px" }}>
+                        {incident.correlationScore}%
+                      </strong>
+                      <div style={{ color: "#94a3b8", fontSize: "12px" }}>
+                        overall correlation score
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* CITIZEN HAZARD REPORT */}
+                  <div
+                    style={{
+                      marginTop: "18px",
+                      padding: "16px",
+                      borderRadius: "12px",
+                      border: "1px solid rgba(56,189,248,0.20)",
+                      background: "rgba(8,47,73,0.24)",
+                    }}
+                  >
                     <div
                       style={{
-                        marginTop: "5px",
-                        color: "#94a3b8",
-                        fontSize: "13px",
-                      }}
-                    >
-                      📍 {incident.location || "Reported location"} •{" "}
-                      {incident.severity} • {incident.classification}
-                    </div>
-                  </div>
-
-                  <div style={{ textAlign: "right" }}>
-                    <strong style={{ fontSize: "24px" }}>
-                      {incident.correlationScore}%
-                    </strong>
-                    <div style={{ color: "#94a3b8", fontSize: "12px" }}>
-                      correlation score
-                    </div>
-                  </div>
-                </div>
-
-                <div
-                  style={{
-                    marginTop: "14px",
-                    display: "flex",
-                    gap: "8px",
-                    flexWrap: "wrap",
-                  }}
-                >
-                  {incident.matchedSignals?.map((signal) => (
-                    <span
-                      key={signal.signalId}
-                      style={{
-                        padding: "7px 10px",
-                        borderRadius: "999px",
-                        background: "rgba(14,116,144,0.16)",
-                        border: "1px solid rgba(56,189,248,0.18)",
                         color: "#bae6fd",
-                        fontSize: "12px",
+                        fontSize: "11px",
+                        fontWeight: 800,
+                        letterSpacing: "0.1em",
+                        marginBottom: "10px",
                       }}
                     >
-                      {signal.source || "External Signal"} • {signal.signalId} •{" "}
-                      {signal.correlation?.score ?? 0}%
-                    </span>
-                  ))}
-                </div>
+                      CITIZEN HAZARD REPORT
+                    </div>
 
-                <div
-                  style={{
-                    marginTop: "12px",
-                    color: "#cbd5e1",
-                    fontSize: "13px",
-                  }}
-                >
-                  <strong>Matched signals:</strong>{" "}
-                  {incident.matchedSignals?.length || 0}. Correlation indicates
-                  a possible incident; it is not confirmation.
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+                        gap: "10px",
+                      }}
+                    >
+                      <div>
+                        <span style={{ color: "#64748b", fontSize: "11px" }}>
+                          HAZARD TYPE
+                        </span>
+                        <div style={{ color: "#e2e8f0", marginTop: "3px" }}>
+                          {incident.hazardType}
+                        </div>
+                      </div>
+
+                      <div>
+                        <span style={{ color: "#64748b", fontSize: "11px" }}>
+                          SEVERITY
+                        </span>
+                        <div style={{ color: "#e2e8f0", marginTop: "3px" }}>
+                          {incident.severity}
+                        </div>
+                      </div>
+
+                      <div>
+                        <span style={{ color: "#64748b", fontSize: "11px" }}>
+                          LOCATION
+                        </span>
+                        <div style={{ color: "#e2e8f0", marginTop: "3px" }}>
+                          {citizenReport?.location || incident.location || "Reported location"}
+                        </div>
+                      </div>
+
+                      <div>
+                        <span style={{ color: "#64748b", fontSize: "11px" }}>
+                          REPORTED
+                        </span>
+                        <div style={{ color: "#e2e8f0", marginTop: "3px" }}>
+                          {reportedTime}
+                        </div>
+                      </div>
+                    </div>
+
+                    {citizenReport?.description && (
+                      <div
+                        style={{
+                          marginTop: "12px",
+                          color: "#cbd5e1",
+                          fontSize: "13px",
+                          lineHeight: 1.5,
+                        }}
+                      >
+                        <strong>Report description:</strong>{" "}
+                        {citizenReport.description}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* CORRELATION DIRECTION */}
+                  <div
+                    style={{
+                      textAlign: "center",
+                      padding: "13px 0",
+                      color: "#67e8f9",
+                      fontSize: "12px",
+                      fontWeight: 800,
+                      letterSpacing: "0.08em",
+                    }}
+                  >
+                    ↕ &nbsp; CORRELATED WITH &nbsp; ↕
+                  </div>
+
+                  {/* EXTERNAL SOCIAL SIGNALS */}
+                  <div
+                    style={{
+                      padding: "16px",
+                      borderRadius: "12px",
+                      border: "1px solid rgba(34,197,94,0.18)",
+                      background: "rgba(20,83,45,0.12)",
+                    }}
+                  >
+                    <div
+                      style={{
+                        color: "#bbf7d0",
+                        fontSize: "11px",
+                        fontWeight: 800,
+                        letterSpacing: "0.1em",
+                        marginBottom: "12px",
+                      }}
+                    >
+                      CONTROLLED EXTERNAL / SOCIAL SIGNALS
+                    </div>
+
+                    <div style={{ display: "grid", gap: "10px" }}>
+                      {incident.matchedSignals?.map((signal) => (
+                        <div
+                          key={signal.signalId}
+                          style={{
+                            padding: "12px 14px",
+                            borderRadius: "10px",
+                            background: "rgba(15,23,42,0.48)",
+                            border: "1px solid rgba(56,189,248,0.14)",
+                          }}
+                        >
+                          <div
+                            style={{
+                              display: "flex",
+                              justifyContent: "space-between",
+                              gap: "12px",
+                              flexWrap: "wrap",
+                            }}
+                          >
+                            <strong style={{ color: "#e2e8f0" }}>
+                              {signal.signalId}
+                            </strong>
+                            <span style={{ color: "#7dd3fc", fontWeight: 700 }}>
+                              {signal.correlation?.score ?? 0}% match
+                            </span>
+                          </div>
+
+                          <div
+                            style={{
+                              marginTop: "5px",
+                              color: "#94a3b8",
+                              fontSize: "12px",
+                            }}
+                          >
+                            Source: {signal.source || "External Signal"} • Hazard: {signal.hazardType}
+                          </div>
+
+                          <div
+                            style={{
+                              marginTop: "8px",
+                              color: "#cbd5e1",
+                              fontSize: "13px",
+                              lineHeight: 1.5,
+                            }}
+                          >
+                            “{signal.text}”
+                          </div>
+
+                          {signal.correlation && (
+                            <div
+                              style={{
+                                marginTop: "9px",
+                                color: "#64748b",
+                                fontSize: "11px",
+                              }}
+                            >
+                              Hazard match: {signal.correlation.hazardMatch ? "Yes" : "No"} •{" "}
+                              Distance: {signal.correlation.distanceKm != null
+                                ? `${signal.correlation.distanceKm.toFixed(2)} km`
+                                : "N/A"} •{" "}
+                              Keyword similarity: {Math.round(
+                                signal.correlation.keywordSimilarity * 100
+                              )}%
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div
+                    style={{
+                      marginTop: "14px",
+                      display: "flex",
+                      justifyContent: "space-between",
+                      gap: "12px",
+                      flexWrap: "wrap",
+                      color: "#cbd5e1",
+                      fontSize: "13px",
+                    }}
+                  >
+                    <span>
+                      <strong>Matched social signals:</strong>{" "}
+                      {incident.matchedSignals?.length || 0}
+                    </span>
+                    <span>
+                      <strong>Classification:</strong>{" "}
+                      {incident.classification}
+                    </span>
+                  </div>
+
+                  <div
+                    style={{
+                      marginTop: "10px",
+                      color: "#94a3b8",
+                      fontSize: "12px",
+                    }}
+                  >
+                    Correlation indicates a possible incident; it is not confirmation.
+                    Social signals are supporting evidence and are not treated as verified
+                    citizen reports.
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
 
