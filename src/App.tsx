@@ -13,6 +13,30 @@ type BackendReport = {
   status: string;
 };
 
+type CorrelationSignal = {
+  signalId: string;
+  source: string;
+  text: string;
+  hazardType: string;
+  correlation?: {
+    score: number;
+    hazardMatch: boolean;
+    distanceKm: number | null;
+    timeDifferenceHours: number | null;
+    keywordSimilarity: number;
+  };
+};
+
+type PossibleIncident = {
+  reportId: string;
+  hazardType: string;
+  location?: string | null;
+  severity: "HIGH" | "MEDIUM" | "LOW";
+  correlationScore: number;
+  classification: string;
+  matchedSignals: CorrelationSignal[];
+};
+
 function App() {
   const [showModal, setShowModal] = useState(false);
   const [isMapExpanded, setIsMapExpanded] = useState(false);
@@ -47,6 +71,11 @@ function App() {
   const [mapReady, setMapReady] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const [correlationIncidents, setCorrelationIncidents] = useState<PossibleIncident[]>([]);
+  const [isCorrelating, setIsCorrelating] = useState(false);
+  const [correlationUpdated, setCorrelationUpdated] = useState<Date | null>(null);
+  const [correlationError, setCorrelationError] = useState("");
 
   // =========================================================
   // REAL DASHBOARD METRICS FROM DYNAMODB REPORTS
@@ -256,6 +285,46 @@ function App() {
 
     return () => window.clearInterval(refreshTimer);
   }, []);
+
+  // =========================================================
+  // RUN SOCIAL SIGNAL CORRELATION
+  // =========================================================
+
+  const runCorrelation = async () => {
+    try {
+      setIsCorrelating(true);
+      setCorrelationError("");
+
+      const response = await fetch(
+        "https://cw6ehoudu9.execute-api.ap-southeast-2.amazonaws.com/correlation",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({}),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.error || data.message || "Correlation analysis failed."
+        );
+      }
+
+      setCorrelationIncidents(data.incidents || []);
+      setCorrelationUpdated(new Date());
+    } catch (error) {
+      console.error("Correlation analysis error:", error);
+      setCorrelationError(
+        error instanceof Error
+          ? error.message
+          : "Correlation analysis failed. Please try again."
+      );
+    } finally {
+      setIsCorrelating(false);
+    }
+  };
 
   // =========================================================
   // SCROLL TO MAP
@@ -958,6 +1027,165 @@ function App() {
 
         </div>
 
+      </section>
+
+      {/* =====================================================
+          CORRELATION INTELLIGENCE
+      ===================================================== */}
+
+      <section className="reports" style={{ marginTop: "28px" }}>
+        <div className="section-heading">
+          <div>
+            <span className="section-tag">CORRELATION ENGINE</span>
+            <h2>Possible Incident Correlation</h2>
+            <p>
+              Cross-check citizen reports with controlled external signals
+              using location, time, hazard type and keyword similarity.
+            </p>
+          </div>
+
+          <button
+            className="primary-button small"
+            onClick={runCorrelation}
+            disabled={isCorrelating}
+          >
+            {isCorrelating ? "Analyzing..." : "Run Correlation Analysis"}
+          </button>
+        </div>
+
+        {correlationError && (
+          <div
+            style={{
+              marginBottom: "16px",
+              padding: "14px 16px",
+              borderRadius: "12px",
+              border: "1px solid rgba(239,68,68,0.35)",
+              background: "rgba(127,29,29,0.18)",
+              color: "#fecaca",
+            }}
+          >
+            Correlation engine error: {correlationError}
+          </div>
+        )}
+
+        {correlationIncidents.length === 0 ? (
+          <div
+            style={{
+              padding: "30px",
+              textAlign: "center",
+              borderRadius: "14px",
+              border: "1px dashed rgba(148,163,184,0.25)",
+              color: "#94a3b8",
+              background: "rgba(15,23,42,0.35)",
+            }}
+          >
+            <strong style={{ display: "block", color: "#cbd5e1" }}>
+              No correlation analysis displayed yet.
+            </strong>
+            <span style={{ display: "block", marginTop: "6px" }}>
+              Run the correlation engine to compare citizen reports with the
+              controlled external-signal dataset.
+            </span>
+          </div>
+        ) : (
+          <div style={{ display: "grid", gap: "12px" }}>
+            {correlationIncidents.map((incident) => (
+              <div
+                key={incident.reportId}
+                style={{
+                  padding: "18px",
+                  borderRadius: "14px",
+                  border: "1px solid rgba(56,189,248,0.18)",
+                  background: "rgba(15,23,42,0.55)",
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    gap: "16px",
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <div>
+                    <strong style={{ fontSize: "17px" }}>
+                      {incident.hazardType}
+                    </strong>
+                    <div
+                      style={{
+                        marginTop: "5px",
+                        color: "#94a3b8",
+                        fontSize: "13px",
+                      }}
+                    >
+                      📍 {incident.location || "Reported location"} •{" "}
+                      {incident.severity} • {incident.classification}
+                    </div>
+                  </div>
+
+                  <div style={{ textAlign: "right" }}>
+                    <strong style={{ fontSize: "24px" }}>
+                      {incident.correlationScore}%
+                    </strong>
+                    <div style={{ color: "#94a3b8", fontSize: "12px" }}>
+                      correlation score
+                    </div>
+                  </div>
+                </div>
+
+                <div
+                  style={{
+                    marginTop: "14px",
+                    display: "flex",
+                    gap: "8px",
+                    flexWrap: "wrap",
+                  }}
+                >
+                  {incident.matchedSignals?.map((signal) => (
+                    <span
+                      key={signal.signalId}
+                      style={{
+                        padding: "7px 10px",
+                        borderRadius: "999px",
+                        background: "rgba(14,116,144,0.16)",
+                        border: "1px solid rgba(56,189,248,0.18)",
+                        color: "#bae6fd",
+                        fontSize: "12px",
+                      }}
+                    >
+                      {signal.source || "External Signal"} • {signal.signalId} •{" "}
+                      {signal.correlation?.score ?? 0}%
+                    </span>
+                  ))}
+                </div>
+
+                <div
+                  style={{
+                    marginTop: "12px",
+                    color: "#cbd5e1",
+                    fontSize: "13px",
+                  }}
+                >
+                  <strong>Matched signals:</strong>{" "}
+                  {incident.matchedSignals?.length || 0}. Correlation indicates
+                  a possible incident; it is not confirmation.
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {correlationUpdated && (
+          <div
+            style={{
+              marginTop: "12px",
+              color: "#64748b",
+              fontSize: "12px",
+            }}
+          >
+            Last analysis: {correlationUpdated.toLocaleTimeString()}
+          </div>
+        )}
       </section>
 
       {/* =====================================================
