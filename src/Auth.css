@@ -1,13 +1,29 @@
+/* =========================================================
+   WAVE WATCH — AUTHENTICATION INTERFACE
+   Dark Blue Technical Command Center Theme
+   ========================================================= */
+
 .wave-auth-page {
   min-height: 100vh;
   width: 100%;
-  background:
-    radial-gradient(circle at 15% 20%, rgba(0, 151, 167, 0.16), transparent 30%),
-    radial-gradient(circle at 85% 80%, rgba(0, 188, 212, 0.1), transparent 30%),
-    #06121f;
-  color: #eaf7ff;
   position: relative;
   overflow: hidden;
+
+  background:
+    radial-gradient(
+      circle at 50% -20%,
+      rgba(0, 157, 196, 0.18),
+      transparent 42%
+    ),
+    radial-gradient(
+      circle at 90% 90%,
+      rgba(0, 90, 150, 0.12),
+      transparent 35%
+    ),
+    #06111d;
+
+  color: #e8f6ff;
+
   font-family:
     Inter,
     system-ui,
@@ -16,6 +32,10 @@
     "Segoe UI",
     sans-serif;
 }
+
+/* =========================================================
+   BACKGROUND
+   ========================================================= */
 
 .wave-auth-background {
   position: fixed;
@@ -27,14 +47,736 @@
 .wave-grid {
   position: absolute;
   inset: 0;
+
   background-image:
-    linear-gradient(rgba(82, 190, 214, 0.045) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(82, 190, 214, 0.045) 1px, transparent 1px);
-  background-size: 45px 45px;
-  mask-image: linear-gradient(to bottom, black, transparent);
+    linear-gradient(
+      rgba(45, 150, 180, 0.035) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      90deg,
+      rgba(45, 150, 180, 0.035) 1px,
+      transparent 1px
+    );
+
+  background-size: 50px 50px;
+
+  mask-image: linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0.9),
+    transparent
+  );
 }
 
 .wave-glow {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(110px);
+  opacity: 0.12;
+}
+
+.wave-glow-one {
+  width: 550px;
+  height: 550px;
+  background: #007ea7;
+  top: -350px;
+  left: -200px;
+}
+
+.wave-glow-two {
+  width: 450px;
+  height: 450px;
+  background: #005b91;
+  right: -220px;
+  bottom: -250px;
+}
+
+/* =========================================================
+   MAIN LANDING SCREEN
+   ========================================================= */
+
+.wave-auth-shell {
+  position: relative;
+  z-index: 2;
+
+  width: min(1180px, calc(100% - 70px));
+  min-height: 100vh;
+
+  margin: auto;
+
+  display: flex;
+  flex-direction: column;
+
+  padding: 28px 0 22px;
+}
+
+/* =========================================================
+   HEADER
+   ========================================================= */
+
+.wave-brand {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+}
+
+.wave-logo {
+  width: 42px;
+  height: 42px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border: 1px solid rgba(47, 190, 220, 0.55);
+
+  background:
+    linear-gradient(
+      145deg,
+      rgba(10, 45, 64, 0.95),
+      rgba(6, 25, 40, 0.95)
+    );
+
+  color: #42cde6;
+
+  border-radius: 7px;
+
+  font-size: 20px;
+  font-weight: 800;
+
+  box-shadow:
+    inset 0 0 20px rgba(0, 190, 220, 0.04),
+    0 0 25px rgba(0, 150, 190, 0.08);
+}
+
+.wave-title {
+  color: #edfaff;
+
+  font-size: 16px;
+  font-weight: 800;
+
+  letter-spacing: 2.2px;
+}
+
+.wave-subtitle {
+  margin-top: 3px;
+
+  color: #668798;
+
+  font-size: 9px;
+  font-weight: 600;
+
+  letter-spacing: 1.6px;
+}
+
+/* =========================================================
+   SYSTEM STATUS
+   ========================================================= */
+
+.wave-status {
+  position: absolute;
+
+  top: 32px;
+  right: 0;
+
+  display: flex;
+  align-items: center;
+
+  padding: 7px 11px;
+
+  border: 1px solid rgba(60, 151, 174, 0.2);
+
+  background: rgba(7, 25, 38, 0.75);
+
+  border-radius: 4px;
+
+  color: #6e9aaa;
+
+  font-size: 9px;
+  font-weight: 700;
+
+  letter-spacing: 1.1px;
+}
+
+.status-dot {
+  width: 6px;
+  height: 6px;
+
+  margin-right: 7px;
+
+  border-radius: 50%;
+
+  background: #27d9a0;
+
+  box-shadow: 0 0 8px rgba(39, 217, 160, 0.8);
+}
+
+/* =========================================================
+   CENTER CONTENT
+   ========================================================= */
+
+.wave-auth-content {
+  width: 100%;
+  max-width: 930px;
+
+  margin: auto;
+}
+
+.wave-auth-heading {
+  max-width: 700px;
+
+  margin-bottom: 38px;
+}
+
+.eyebrow {
+  margin-bottom: 12px;
+
+  color: #27b9d5;
+
+  font-size: 9px;
+  font-weight: 800;
+
+  letter-spacing: 2.2px;
+}
+
+.wave-auth-heading h1 {
+  margin: 0;
+
+  color: #eaf8ff;
+
+  font-size: clamp(38px, 5vw, 58px);
+
+  line-height: 1.05;
+
+  font-weight: 700;
+
+  letter-spacing: -2px;
+}
+
+.wave-auth-heading h1 span {
+  color: #25bdd9;
+}
+
+.wave-auth-heading p {
+  max-width: 650px;
+
+  margin-top: 17px;
+
+  color: #7895a4;
+
+  font-size: 13px;
+
+  line-height: 1.7;
+}
+
+/* =========================================================
+   ACCESS SELECTION
+   ========================================================= */
+
+.role-label {
+  margin-bottom: 11px;
+
+  color: #557888;
+
+  font-size: 9px;
+  font-weight: 800;
+
+  letter-spacing: 1.8px;
+}
+
+.role-cards {
+  display: grid;
+
+  grid-template-columns: repeat(2, 1fr);
+
+  gap: 13px;
+
+  max-width: 800px;
+}
+
+.role-card {
+  position: relative;
+
+  display: flex;
+
+  min-height: 175px;
+
+  padding: 21px;
+
+  gap: 15px;
+
+  text-align: left;
+
+  color: #e9f8ff;
+
+  border: 1px solid rgba(47, 134, 159, 0.25);
+
+  border-radius: 7px;
+
+  background:
+    linear-gradient(
+      145deg,
+      rgba(10, 35, 51, 0.92),
+      rgba(6, 24, 38, 0.92)
+    );
+
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.015),
+    0 12px 30px rgba(0, 0, 0, 0.18);
+
+  cursor: pointer;
+
+  transition:
+    border-color 0.2s ease,
+    background 0.2s ease,
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.role-card::before {
+  content: "";
+
+  position: absolute;
+
+  top: 0;
+  left: 18px;
+  right: 18px;
+
+  height: 1px;
+
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(48, 196, 221, 0.4),
+    transparent
+  );
+}
+
+.role-card:hover {
+  transform: translateY(-2px);
+
+  border-color: rgba(39, 188, 215, 0.55);
+
+  background:
+    linear-gradient(
+      145deg,
+      rgba(11, 44, 62, 0.96),
+      rgba(7, 28, 44, 0.96)
+    );
+
+  box-shadow:
+    0 16px 35px rgba(0, 0, 0, 0.25),
+    0 0 25px rgba(0, 150, 190, 0.06);
+}
+
+.admin-card:hover {
+  border-color: rgba(220, 157, 66, 0.5);
+}
+
+/* =========================================================
+   ROLE ICON
+   ========================================================= */
+
+.role-icon {
+  width: 38px;
+  height: 38px;
+
+  min-width: 38px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 6px;
+
+  font-size: 15px;
+}
+
+.citizen-icon {
+  color: #35c7df;
+
+  border: 1px solid rgba(40, 190, 218, 0.25);
+
+  background: rgba(15, 144, 172, 0.08);
+}
+
+.admin-icon {
+  color: #e8ad5f;
+
+  border: 1px solid rgba(220, 157, 66, 0.22);
+
+  background: rgba(180, 115, 35, 0.07);
+}
+
+/* =========================================================
+   ROLE TEXT
+   ========================================================= */
+
+.role-card-content {
+  flex: 1;
+}
+
+.role-card-title {
+  margin-bottom: 9px;
+
+  color: #eaf7fc;
+
+  font-size: 14px;
+  font-weight: 800;
+
+  letter-spacing: 1.4px;
+}
+
+.role-card-description {
+  max-width: 300px;
+
+  color: #7895a4;
+
+  font-size: 11px;
+
+  line-height: 1.65;
+}
+
+.role-card-action {
+  margin-top: 19px;
+
+  color: #2bbfd8;
+
+  font-size: 8px;
+  font-weight: 800;
+
+  letter-spacing: 1.3px;
+}
+
+.admin-card .role-card-action {
+  color: #dfaa61;
+}
+
+/* =========================================================
+   FOOTER
+   ========================================================= */
+
+.wave-auth-footer {
+  display: flex;
+
+  justify-content: center;
+
+  gap: 8px;
+
+  color: #405e6c;
+
+  font-size: 8px;
+  font-weight: 700;
+
+  letter-spacing: 1.1px;
+}
+
+/* =========================================================
+   LOGIN PAGE
+   ========================================================= */
+
+.wave-login-container {
+  position: relative;
+  z-index: 3;
+
+  width: min(460px, calc(100% - 32px));
+
+  margin: 45px auto 0;
+}
+
+.back-role-button {
+  padding: 0;
+  margin-bottom: 21px;
+
+  border: none;
+
+  background: transparent;
+
+  color: #2abbd5;
+
+  font-size: 8px;
+  font-weight: 800;
+
+  letter-spacing: 1.2px;
+
+  cursor: pointer;
+}
+
+.back-role-button:hover {
+  color: #dff9ff;
+}
+
+/* =========================================================
+   LOGIN BRAND
+   ========================================================= */
+
+.wave-login-brand {
+  display: flex;
+
+  align-items: center;
+
+  gap: 11px;
+
+  margin-bottom: 17px;
+}
+
+.small-logo {
+  width: 38px;
+  height: 38px;
+
+  font-size: 18px;
+}
+
+/* =========================================================
+   SELECTED ROLE BAR
+   ========================================================= */
+
+.selected-role-banner {
+  display: flex;
+
+  align-items: center;
+
+  gap: 11px;
+
+  padding: 11px 13px;
+
+  border: 1px solid rgba(47, 134, 159, 0.23);
+
+  border-bottom: none;
+
+  border-radius: 6px 6px 0 0;
+
+  background: rgba(8, 29, 43, 0.9);
+}
+
+.selected-role-indicator {
+  width: 29px;
+  height: 29px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 5px;
+
+  color: #35c7df;
+
+  background: rgba(15, 144, 172, 0.09);
+
+  border: 1px solid rgba(40, 190, 218, 0.2);
+
+  font-size: 12px;
+}
+
+.admin-selected {
+  color: #e8ad5f;
+
+  background: rgba(180, 115, 35, 0.07);
+
+  border-color: rgba(220, 157, 66, 0.2);
+}
+
+.selected-role-title {
+  color: #dff6fd;
+
+  font-size: 9px;
+  font-weight: 800;
+
+  letter-spacing: 1.4px;
+}
+
+.selected-role-text {
+  margin-top: 2px;
+
+  color: #668696;
+
+  font-size: 8px;
+}
+
+/* =========================================================
+   AMPLIFY AUTHENTICATOR
+   ========================================================= */
+
+.authenticator-wrapper {
+  padding: 4px 17px 16px;
+
+  border-radius: 0 0 6px 6px;
+
+  background: #f8fbfc;
+
+  box-shadow:
+    0 25px 70px rgba(0, 0, 0, 0.35),
+    0 0 35px rgba(0, 120, 160, 0.05);
+}
+
+.authenticator-wrapper [data-amplify-authenticator] {
+  --amplify-colors-background-primary: #f8fbfc;
+  --amplify-colors-background-secondary: #f8fbfc;
+
+  --amplify-colors-brand-primary-10: #e4f7fb;
+  --amplify-colors-brand-primary-80: #07859b;
+  --amplify-colors-brand-primary-90: #06758a;
+  --amplify-colors-brand-primary-100: #056477;
+
+  --amplify-colors-border-primary: #d2dce1;
+
+  --amplify-colors-font-primary: #243744;
+  --amplify-colors-font-secondary: #657985;
+
+  --amplify-components-button-primary-background-color: #087f96;
+  --amplify-components-button-primary-hover-background-color: #066d81;
+
+  --amplify-components-button-primary-color: #ffffff;
+
+  --amplify-components-tabs-item-active-color: #087f96;
+  --amplify-components-tabs-item-color: #617581;
+
+  --amplify-components-fieldcontrol-border-color: #c5d1d7;
+  --amplify-components-fieldcontrol-focus-border-color: #087f96;
+}
+
+.authenticator-wrapper
+  [data-amplify-authenticator]
+  .amplify-card {
+  box-shadow: none;
+
+  border: none;
+
+  padding: 9px 6px 4px;
+}
+
+.authenticator-wrapper
+  [data-amplify-authenticator]
+  .amplify-tabs {
+  border-bottom: 1px solid #dce4e8;
+}
+
+.authenticator-wrapper
+  [data-amplify-authenticator]
+  .amplify-tabs-item {
+  font-size: 13px;
+
+  font-weight: 700;
+}
+
+.authenticator-wrapper
+  [data-amplify-authenticator]
+  .amplify-field__label {
+  color: #344b58;
+
+  font-size: 12px;
+
+  font-weight: 650;
+}
+
+.authenticator-wrapper
+  [data-amplify-authenticator]
+  .amplify-field-group__control {
+  border-radius: 5px;
+
+  min-height: 42px;
+}
+
+.authenticator-wrapper
+  [data-amplify-authenticator]
+  .amplify-button--primary {
+  border-radius: 5px;
+
+  min-height: 42px;
+
+  font-size: 12px;
+
+  font-weight: 750;
+}
+
+/* =========================================================
+   SECURITY FOOTER
+   ========================================================= */
+
+.admin-security-note,
+.citizen-security-note {
+  margin-top: 11px;
+
+  text-align: center;
+
+  color: #526f7e;
+
+  font-size: 8px;
+
+  letter-spacing: 0.8px;
+
+  font-weight: 700;
+}
+
+.admin-security-note span {
+  color: #e4ab60;
+
+  margin-right: 5px;
+}
+
+.citizen-security-note span {
+  color: #35c7df;
+
+  margin-right: 5px;
+}
+
+/* =========================================================
+   RESPONSIVE
+   ========================================================= */
+
+@media (max-width: 760px) {
+  .wave-auth-shell {
+    width: calc(100% - 30px);
+
+    padding-top: 22px;
+  }
+
+  .wave-status {
+    position: static;
+
+    width: fit-content;
+
+    margin-top: 15px;
+  }
+
+  .wave-auth-content {
+    margin-top: 55px;
+  }
+
+  .role-cards {
+    grid-template-columns: 1fr;
+  }
+
+  .wave-auth-heading h1 {
+    font-size: 40px;
+  }
+
+  .wave-auth-footer {
+    margin-top: 35px;
+
+    flex-wrap: wrap;
+  }
+
+  .wave-login-container {
+    margin-top: 28px;
+  }
+}
+
+@media (max-width: 480px) {
+  .role-card {
+    min-height: 160px;
+
+    padding: 17px;
+  }
+
+  .wave-auth-heading h1 {
+    font-size: 34px;
+  }
+
+  .wave-auth-heading p {
+    font-size: 12px;
+  }
+}.wave-glow {
   position: absolute;
   width: 500px;
   height: 500px;
