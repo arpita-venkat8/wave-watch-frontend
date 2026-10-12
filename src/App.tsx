@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useAuthenticator } from "@aws-amplify/ui-react";
 import "./App.css";
 
 type BackendReport = {
@@ -38,7 +39,16 @@ type PossibleIncident = {
 };
 
 function App() {
+  const { user, signOut } = useAuthenticator();
+
   const [showModal, setShowModal] = useState(false);
+    const userGroups =
+    (user?.signInDetails as any)?.attributes?.["custom:groups"] || "";
+
+  const isAdmin =
+    Array.isArray((user as any)?.signInDetails?.attributes?.["cognito:groups"])
+      ? (user as any).signInDetails.attributes["cognito:groups"].includes("ADMIN")
+      : false;
   const [isMapExpanded, setIsMapExpanded] = useState(false);
 
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
