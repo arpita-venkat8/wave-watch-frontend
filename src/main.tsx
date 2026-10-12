@@ -66,6 +66,7 @@ function AuthenticationPortal() {
                 <button
                   className="role-card"
                   onClick={() => setSelectedRole("CITIZEN")}
+                  type="button"
                 >
                   <div className="role-icon citizen-icon">◉</div>
 
@@ -86,6 +87,7 @@ function AuthenticationPortal() {
                 <button
                   className="role-card admin-card"
                   onClick={() => setSelectedRole("ADMIN")}
+                  type="button"
                 >
                   <div className="role-icon admin-icon">◆</div>
 
@@ -130,6 +132,7 @@ function AuthenticationPortal() {
         <button
           className="back-role-button"
           onClick={() => setSelectedRole(null)}
+          type="button"
         >
           ← CHANGE ACCESS TYPE
         </button>
@@ -139,6 +142,7 @@ function AuthenticationPortal() {
 
           <div>
             <div className="wave-title">WAVE WATCH</div>
+
             <div className="wave-subtitle">
               {selectedRole === "ADMIN"
                 ? "ADMIN CONTROL CENTER"
@@ -172,9 +176,7 @@ function AuthenticationPortal() {
         </div>
 
         <div className="authenticator-wrapper">
-          <Authenticator
-            hideSignUp={selectedRole === "ADMIN"}
-          >
+          <Authenticator hideSignUp={selectedRole === "ADMIN"}>
             <App />
           </Authenticator>
         </div>
@@ -189,7 +191,7 @@ function AuthenticationPortal() {
         {selectedRole === "CITIZEN" && (
           <div className="citizen-security-note">
             <span>●</span>
-            Citizen accounts can register directly through this portal.
+            CITIZEN ACCOUNTS CAN REGISTER DIRECTLY THROUGH THIS PORTAL
           </div>
         )}
       </div>
