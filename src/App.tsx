@@ -312,33 +312,45 @@ function App() {
         );
       }
 
-      const normalizedIncidents: PossibleIncident[] = (data.incidents || [])
-        .map((incident: PossibleIncident) => {
-          const matchedSignals = (incident.matchedSignals || [])
-            .filter(
-              (signal) =>
-                signal.correlation?.timeDifferenceHours != null &&
-                signal.correlation.timeDifferenceHours <= 24
-            )
-            .sort(
-              (a, b) =>
-                (b.correlation?.score ?? 0) - (a.correlation?.score ?? 0)
+      const rawIncidents: PossibleIncident[] = Array.isArray(data.incidents)
+        ? data.incidents
+        : [];
+
+      const normalizedIncidents: PossibleIncident[] = [];
+
+      rawIncidents.forEach((incident: PossibleIncident) => {
+        const matchedSignals: CorrelationSignal[] = (incident.matchedSignals || [])
+          .filter((signal: CorrelationSignal) => {
+            const timeDifference = signal.correlation?.timeDifferenceHours;
+
+            return (
+              timeDifference != null &&
+              timeDifference <= 24
             );
+          })
+          .sort(
+            (a: CorrelationSignal, b: CorrelationSignal) =>
+              (b.correlation?.score ?? 0) -
+              (a.correlation?.score ?? 0)
+          );
 
-          if (matchedSignals.length === 0) {
-            return null;
-          }
+        if (matchedSignals.length === 0) {
+          return;
+        }
 
-          return {
-            ...incident,
-            matchedSignals,
-            // This is the strongest Citizen Report ↔ Social Signal match.
-            correlationScore: matchedSignals[0].correlation?.score ?? 0,
-            classification: "POSSIBLE_INCIDENT",
-          };
-        })
-        .filter((incident): incident is PossibleIncident => incident !== null)
-        .sort((a, b) => b.correlationScore - a.correlationScore);
+        normalizedIncidents.push({
+          ...incident,
+          matchedSignals,
+          // This is the strongest Citizen Report ↔ Social Signal match.
+          correlationScore: matchedSignals[0].correlation?.score ?? 0,
+          classification: "POSSIBLE_INCIDENT",
+        });
+      });
+
+      normalizedIncidents.sort(
+        (a: PossibleIncident, b: PossibleIncident) =>
+          b.correlationScore - a.correlationScore
+      );
 
       setCorrelationIncidents(normalizedIncidents);
       setCorrelationUpdated(new Date());
