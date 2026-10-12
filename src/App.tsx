@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import { useAuthenticator } from "@aws-amplify/ui-react";
 import "./App.css";
 
 type BackendReport = {
@@ -39,16 +38,7 @@ type PossibleIncident = {
 };
 
 function App() {
-  const { user, signOut } = useAuthenticator();
-
   const [showModal, setShowModal] = useState(false);
-    const userGroups =
-    (user?.signInDetails as any)?.attributes?.["custom:groups"] || "";
-
-  const isAdmin =
-    Array.isArray((user as any)?.signInDetails?.attributes?.["cognito:groups"])
-      ? (user as any).signInDetails.attributes["cognito:groups"].includes("ADMIN")
-      : false;
   const [isMapExpanded, setIsMapExpanded] = useState(false);
 
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
@@ -322,47 +312,7 @@ function App() {
         );
       }
 
-      const rawIncidents: PossibleIncident[] = Array.isArray(data.incidents)
-        ? data.incidents
-        : [];
-
-      const normalizedIncidents: PossibleIncident[] = [];
-
-      rawIncidents.forEach((incident: PossibleIncident) => {
-        const matchedSignals: CorrelationSignal[] = (incident.matchedSignals || [])
-          .filter((signal: CorrelationSignal) => {
-            const timeDifference = signal.correlation?.timeDifferenceHours;
-
-            return (
-              timeDifference != null &&
-              timeDifference <= 24
-            );
-          })
-          .sort(
-            (a: CorrelationSignal, b: CorrelationSignal) =>
-              (b.correlation?.score ?? 0) -
-              (a.correlation?.score ?? 0)
-          );
-
-        if (matchedSignals.length === 0) {
-          return;
-        }
-
-        normalizedIncidents.push({
-          ...incident,
-          matchedSignals,
-          // This is the strongest Citizen Report ↔ Social Signal match.
-          correlationScore: matchedSignals[0].correlation?.score ?? 0,
-          classification: "POSSIBLE_INCIDENT",
-        });
-      });
-
-      normalizedIncidents.sort(
-        (a: PossibleIncident, b: PossibleIncident) =>
-          b.correlationScore - a.correlationScore
-      );
-
-      setCorrelationIncidents(normalizedIncidents);
+      setCorrelationIncidents(data.incidents || []);
       setCorrelationUpdated(new Date());
     } catch (error) {
       console.error("Correlation analysis error:", error);
@@ -641,6 +591,7 @@ function App() {
       // Clear form
       setHazardType("High Waves");
       setCustomHazardType("");
+      setSeverity("MEDIUM");
       setSeverity("MEDIUM");
       setLocation("");
       setDescription("");
@@ -1088,8 +1039,8 @@ function App() {
             <span className="section-tag">CORRELATION ENGINE</span>
             <h2>Possible Incident Correlation</h2>
             <p>
-              Compares each citizen hazard report directly against controlled
-              external/social signals using hazard type, location, time and text similarity.
+              Correlates each citizen hazard report with controlled external
+              signals using location, time, hazard type and keyword similarity.
             </p>
           </div>
 
@@ -1144,17 +1095,8 @@ function App() {
               );
 
               const reportedTime = citizenReport?.timestamp
-                ? new Date(citizenReport.timestamp).toLocaleString("en-IN", {
-                    day: "2-digit",
-                    month: "short",
-                    year: "numeric",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })
+                ? new Date(citizenReport.timestamp).toLocaleString()
                 : "Time unavailable";
-
-              const matchedSignals = incident.matchedSignals || [];
-              const bestSignal = matchedSignals[0];
 
               return (
                 <div
@@ -1198,7 +1140,7 @@ function App() {
                           fontSize: "13px",
                         }}
                       >
-                        Citizen Report ID: {incident.reportId}
+                        Incident ID: {incident.reportId}
                       </div>
                     </div>
 
@@ -1207,7 +1149,7 @@ function App() {
                         {incident.correlationScore}%
                       </strong>
                       <div style={{ color: "#94a3b8", fontSize: "12px" }}>
-                        best report ↔ social match
+                        overall correlation score
                       </div>
                     </div>
                   </div>
@@ -1237,8 +1179,7 @@ function App() {
                     <div
                       style={{
                         display: "grid",
-                        gridTemplateColumns:
-                          "repeat(auto-fit, minmax(180px, 1fr))",
+                        gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
                         gap: "10px",
                       }}
                     >
@@ -1265,9 +1206,7 @@ function App() {
                           LOCATION
                         </span>
                         <div style={{ color: "#e2e8f0", marginTop: "3px" }}>
-                          {citizenReport?.location ||
-                            incident.location ||
-                            "Reported location"}
+                          {citizenReport?.location || incident.location || "Reported location"}
                         </div>
                       </div>
 
@@ -1307,10 +1246,10 @@ function App() {
                       letterSpacing: "0.08em",
                     }}
                   >
-                    ↓ &nbsp; REPORT ↔ SOCIAL SIGNAL CORRELATION &nbsp; ↓
+                    ↕ &nbsp; CORRELATED WITH &nbsp; ↕
                   </div>
 
-                  {/* EXTERNAL / SOCIAL SIGNALS */}
+                  {/* EXTERNAL SOCIAL SIGNALS */}
                   <div
                     style={{
                       padding: "16px",
@@ -1332,7 +1271,7 @@ function App() {
                     </div>
 
                     <div style={{ display: "grid", gap: "10px" }}>
-                      {matchedSignals.map((signal) => (
+                      {incident.matchedSignals?.map((signal) => (
                         <div
                           key={signal.signalId}
                           style={{
@@ -1353,12 +1292,7 @@ function App() {
                             <strong style={{ color: "#e2e8f0" }}>
                               {signal.signalId}
                             </strong>
-                            <span
-                              style={{
-                                color: "#7dd3fc",
-                                fontWeight: 700,
-                              }}
-                            >
+                            <span style={{ color: "#7dd3fc", fontWeight: 700 }}>
                               {signal.correlation?.score ?? 0}% match
                             </span>
                           </div>
@@ -1370,8 +1304,7 @@ function App() {
                               fontSize: "12px",
                             }}
                           >
-                            Source: {signal.source || "External Signal"} • Hazard:{" "}
-                            {signal.hazardType}
+                            Source: {signal.source || "External Signal"} • Hazard: {signal.hazardType}
                           </div>
 
                           <div
@@ -1391,74 +1324,19 @@ function App() {
                                 marginTop: "9px",
                                 color: "#64748b",
                                 fontSize: "11px",
-                                lineHeight: 1.6,
                               }}
                             >
-                              <div>
-                                Hazard match:{" "}
-                                {signal.correlation.hazardMatch ? "Yes" : "No"}{" "}
-                                • Distance:{" "}
-                                {signal.correlation.distanceKm != null
-                                  ? `${signal.correlation.distanceKm.toFixed(2)} km`
-                                  : "N/A"}{" "}
-                                • Time difference:{" "}
-                                {signal.correlation.timeDifferenceHours != null
-                                  ? `${signal.correlation.timeDifferenceHours.toFixed(1)} hr`
-                                  : "N/A"}
-                              </div>
-                              <div>
-                                Keyword similarity:{" "}
-                                {Math.round(
-                                  signal.correlation.keywordSimilarity * 100
-                                )}
-                                %
-                              </div>
+                              Hazard match: {signal.correlation.hazardMatch ? "Yes" : "No"} •{" "}
+                              Distance: {signal.correlation.distanceKm != null
+                                ? `${signal.correlation.distanceKm.toFixed(2)} km`
+                                : "N/A"} •{" "}
+                              Keyword similarity: {Math.round(
+                                signal.correlation.keywordSimilarity * 100
+                              )}%
                             </div>
                           )}
                         </div>
                       ))}
-                    </div>
-                  </div>
-
-                  {/* EVIDENCE SUMMARY */}
-                  <div
-                    style={{
-                      marginTop: "14px",
-                      padding: "12px 14px",
-                      borderRadius: "10px",
-                      background: "rgba(15,23,42,0.45)",
-                      border: "1px solid rgba(148,163,184,0.12)",
-                      color: "#cbd5e1",
-                      fontSize: "12px",
-                      lineHeight: 1.7,
-                    }}
-                  >
-                    <strong style={{ color: "#e2e8f0" }}>
-                      Correlation evidence
-                    </strong>
-                    <div>
-                      ✓ Hazard type:{" "}
-                      {bestSignal?.correlation?.hazardMatch ? "Matched" : "Not matched"}
-                    </div>
-                    <div>
-                      ✓ Geographic proximity:{" "}
-                      {bestSignal?.correlation?.distanceKm != null
-                        ? `${bestSignal.correlation.distanceKm.toFixed(2)} km`
-                        : "Unavailable"}
-                    </div>
-                    <div>
-                      ✓ Temporal proximity:{" "}
-                      {bestSignal?.correlation?.timeDifferenceHours != null
-                        ? `${bestSignal.correlation.timeDifferenceHours.toFixed(1)} hr`
-                        : "Unavailable"}
-                    </div>
-                    <div>
-                      ✓ Keyword similarity:{" "}
-                      {bestSignal?.correlation?.keywordSimilarity != null
-                        ? `${Math.round(
-                            bestSignal.correlation.keywordSimilarity * 100
-                          )}%`
-                        : "Unavailable"}
                     </div>
                   </div>
 
@@ -1475,7 +1353,7 @@ function App() {
                   >
                     <span>
                       <strong>Matched social signals:</strong>{" "}
-                      {matchedSignals.length}
+                      {incident.matchedSignals?.length || 0}
                     </span>
                     <span>
                       <strong>Classification:</strong>{" "}
