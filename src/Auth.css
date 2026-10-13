@@ -1,11 +1,660 @@
 /* =========================================================
-   AMPLIFY AUTHENTICATOR — WAVE WATCH OVERRIDE
+   WAVE WATCH AUTHENTICATION
+   Dark Blue Coastal Command Center Theme
+   ========================================================= */
+
+* {
+  box-sizing: border-box;
+}
+
+.wave-auth-page {
+  min-height: 100vh;
+  width: 100%;
+  background:
+    radial-gradient(
+      circle at 78% 42%,
+      rgba(0, 164, 255, 0.14),
+      transparent 30%
+    ),
+    radial-gradient(
+      circle at 15% 80%,
+      rgba(0, 91, 170, 0.12),
+      transparent 32%
+    ),
+    #061321;
+  color: #f4f8fc;
+  position: relative;
+  overflow-x: hidden;
+  font-family:
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+}
+
+/* =========================================================
+   BACKGROUND
+   ========================================================= */
+
+.wave-auth-background {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.wave-grid {
+  position: absolute;
+  inset: 0;
+  opacity: 0.14;
+
+  background-image:
+    linear-gradient(
+      rgba(41, 171, 255, 0.08) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      90deg,
+      rgba(41, 171, 255, 0.08) 1px,
+      transparent 1px
+    );
+
+  background-size: 48px 48px;
+
+  mask-image: linear-gradient(
+    to bottom,
+    black,
+    transparent 90%
+  );
+}
+
+.wave-glow {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(100px);
+}
+
+.wave-glow-one {
+  width: 450px;
+  height: 450px;
+  right: 5%;
+  top: 15%;
+  background: rgba(0, 157, 255, 0.11);
+}
+
+.wave-glow-two {
+  width: 350px;
+  height: 350px;
+  left: 3%;
+  bottom: 5%;
+  background: rgba(0, 99, 190, 0.1);
+}
+
+/* =========================================================
+   HEADER
+   ========================================================= */
+
+.wave-auth-header {
+  height: 92px;
+  width: 100%;
+  padding: 0 5%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  background: rgba(4, 15, 29, 0.92);
+  border-bottom: 1px solid rgba(113, 151, 181, 0.13);
+
+  position: relative;
+  z-index: 5;
+}
+
+.wave-brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.wave-brand-mark {
+  width: 44px;
+  height: 44px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 11px;
+
+  background: rgba(35, 171, 255, 0.08);
+  border: 1px solid rgba(35, 171, 255, 0.22);
+
+  font-size: 24px;
+}
+
+.wave-brand-title {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: 3px;
+}
+
+.wave-brand-subtitle {
+  margin-top: 3px;
+  color: #71859d;
+  font-size: 12px;
+  letter-spacing: 0.5px;
+}
+
+.wave-system-status {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+
+  padding: 9px 17px;
+
+  border-radius: 20px;
+
+  color: #75e9a2;
+  background: rgba(19, 117, 67, 0.12);
+  border: 1px solid rgba(31, 211, 115, 0.25);
+
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.system-dot {
+  width: 8px;
+  height: 8px;
+
+  border-radius: 50%;
+
+  background: #27d978;
+
+  box-shadow:
+    0 0 10px rgba(39, 217, 120, 0.8);
+}
+
+/* =========================================================
+   ROLE SELECTION PAGE
+   ========================================================= */
+
+.wave-auth-main {
+  min-height: calc(100vh - 157px);
+
+  padding: 65px 5% 45px;
+
+  display: grid;
+
+  grid-template-columns:
+    minmax(0, 1fr)
+    minmax(400px, 470px);
+
+  gap: 80px;
+
+  align-items: center;
+
+  position: relative;
+  z-index: 1;
+}
+
+.wave-auth-hero {
+  max-width: 720px;
+}
+
+.wave-monitor-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+
+  padding: 9px 16px;
+
+  border-radius: 30px;
+
+  border: 1px solid rgba(27, 173, 255, 0.35);
+
+  background: rgba(14, 105, 159, 0.1);
+
+  color: #29b4ff;
+
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 1.6px;
+}
+
+.wave-auth-hero h1,
+.wave-login-info h1 {
+  margin: 30px 0 20px;
+
+  font-size: clamp(52px, 5.8vw, 78px);
+
+  line-height: 0.98;
+
+  letter-spacing: -3.5px;
+
+  font-weight: 800;
+}
+
+.wave-auth-hero h1 span,
+.wave-login-info h1 span {
+  color: #27b5ff;
+}
+
+.wave-auth-hero p,
+.wave-login-info p {
+  max-width: 650px;
+
+  color: #91a5ba;
+
+  font-size: 16px;
+
+  line-height: 1.75;
+}
+
+.wave-feature-list {
+  margin-top: 30px;
+
+  display: flex;
+  flex-direction: column;
+
+  gap: 12px;
+
+  color: #b6c5d4;
+
+  font-size: 14px;
+}
+
+.wave-feature-list div {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+
+.wave-feature-list span {
+  color: #25b4ff;
+  font-weight: 900;
+}
+
+/* =========================================================
+   ACCESS PANEL
+   ========================================================= */
+
+.wave-access-panel {
+  width: 100%;
+
+  padding: 32px;
+
+  border-radius: 18px;
+
+  background: rgba(7, 24, 42, 0.92);
+
+  border: 1px solid rgba(68, 139, 186, 0.28);
+
+  box-shadow:
+    0 25px 70px rgba(0, 0, 0, 0.38),
+    0 0 50px rgba(0, 155, 255, 0.05);
+
+  position: relative;
+}
+
+.panel-top-line {
+  position: absolute;
+
+  top: 0;
+  left: 24px;
+  right: 24px;
+
+  height: 2px;
+
+  background: linear-gradient(
+    90deg,
+    transparent,
+    #27b5ff,
+    transparent
+  );
+}
+
+.panel-label {
+  color: #2bb5ff;
+
+  font-size: 10px;
+  font-weight: 900;
+
+  letter-spacing: 1.8px;
+}
+
+.wave-access-panel h2 {
+  margin: 9px 0 7px;
+
+  font-size: 25px;
+}
+
+.panel-description {
+  color: #7f94aa;
+
+  font-size: 13px;
+
+  line-height: 1.6;
+
+  margin-bottom: 23px;
+}
+
+.access-options {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.access-card {
+  width: 100%;
+
+  display: flex;
+  align-items: flex-start;
+
+  gap: 15px;
+
+  padding: 18px;
+
+  text-align: left;
+
+  color: #eef6fc;
+
+  background: rgba(8, 31, 52, 0.72);
+
+  border: 1px solid rgba(80, 133, 169, 0.28);
+
+  border-radius: 13px;
+
+  cursor: pointer;
+
+  transition:
+    transform 0.2s ease,
+    border-color 0.2s ease,
+    background 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.access-card:hover {
+  transform: translateY(-2px);
+
+  border-color: rgba(38, 179, 255, 0.65);
+
+  background: rgba(11, 43, 70, 0.9);
+
+  box-shadow:
+    0 10px 35px rgba(0, 153, 255, 0.12);
+}
+
+.access-icon {
+  width: 42px;
+  height: 42px;
+
+  flex-shrink: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 10px;
+
+  color: #2ab5ff;
+
+  background: rgba(35, 176, 255, 0.1);
+
+  border: 1px solid rgba(35, 176, 255, 0.25);
+
+  font-size: 18px;
+}
+
+.admin-access .access-icon {
+  color: #f5bb59;
+
+  background: rgba(245, 187, 89, 0.08);
+
+  border-color: rgba(245, 187, 89, 0.25);
+}
+
+.access-content {
+  min-width: 0;
+}
+
+.access-title {
+  font-size: 17px;
+  font-weight: 800;
+
+  margin-bottom: 4px;
+}
+
+.access-description {
+  color: #8298ad;
+
+  font-size: 12px;
+
+  line-height: 1.55;
+}
+
+.access-arrow {
+  margin-top: 9px;
+
+  color: #2ab5ff;
+
+  font-size: 10px;
+
+  font-weight: 800;
+
+  letter-spacing: 1px;
+}
+
+.admin-access .access-arrow {
+  color: #f5bb59;
+}
+
+.access-security {
+  margin-top: 21px;
+
+  padding-top: 16px;
+
+  border-top: 1px solid rgba(103, 137, 163, 0.14);
+
+  color: #657d94;
+
+  font-size: 9px;
+
+  letter-spacing: 1.3px;
+
+  font-weight: 700;
+}
+
+.access-security span {
+  color: #2bd67c;
+
+  margin-right: 7px;
+}
+
+/* =========================================================
+   LOGIN PAGE
+   ========================================================= */
+
+.wave-login-main {
+  min-height: calc(100vh - 157px);
+
+  padding: 35px 5% 40px;
+
+  position: relative;
+
+  z-index: 1;
+}
+
+.back-access-button {
+  background: transparent;
+
+  border: none;
+
+  color: #6e849b;
+
+  cursor: pointer;
+
+  font-size: 10px;
+
+  font-weight: 800;
+
+  letter-spacing: 1.2px;
+
+  padding: 0;
+}
+
+.back-access-button:hover {
+  color: #2bb5ff;
+}
+
+.wave-login-layout {
+  width: 100%;
+  max-width: 1180px;
+
+  margin: 35px auto 0;
+
+  display: grid;
+
+  grid-template-columns:
+    minmax(0, 1fr)
+    430px;
+
+  gap: 70px;
+
+  align-items: center;
+}
+
+.wave-login-info {
+  max-width: 620px;
+}
+
+.login-system-info {
+  display: flex;
+
+  flex-wrap: wrap;
+
+  gap: 18px;
+
+  margin-top: 28px;
+}
+
+.system-info-item {
+  color: #70879d;
+
+  font-size: 9px;
+
+  font-weight: 800;
+
+  letter-spacing: 1px;
+}
+
+.info-dot {
+  display: inline-block;
+
+  width: 6px;
+  height: 6px;
+
+  margin-right: 6px;
+
+  border-radius: 50%;
+
+  background: #2bb5ff;
+
+  box-shadow:
+    0 0 10px rgba(43, 181, 255, 0.8);
+}
+
+/* =========================================================
+   LOGIN CARD
+   ========================================================= */
+
+.wave-login-card {
+  width: 100%;
+  min-width: 0;
+
+  padding: 27px;
+
+  border-radius: 18px;
+
+  background: rgba(7, 24, 42, 0.95);
+
+  border: 1px solid rgba(70, 135, 177, 0.3);
+
+  box-shadow:
+    0 30px 80px rgba(0, 0, 0, 0.42),
+    0 0 40px rgba(0, 156, 255, 0.07);
+}
+
+.login-card-header {
+  display: flex;
+
+  align-items: center;
+
+  gap: 13px;
+}
+
+.login-role-icon {
+  width: 45px;
+  height: 45px;
+
+  flex-shrink: 0;
+
+  display: flex;
+
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 11px;
+
+  color: #2bb5ff;
+
+  background: rgba(39, 180, 255, 0.1);
+
+  border: 1px solid rgba(39, 180, 255, 0.24);
+}
+
+.login-role-icon.admin-role {
+  color: #f5bb59;
+
+  background: rgba(245, 187, 89, 0.08);
+
+  border-color: rgba(245, 187, 89, 0.24);
+}
+
+.login-card-label {
+  color: #2bb5ff;
+
+  font-size: 9px;
+
+  font-weight: 900;
+
+  letter-spacing: 1.7px;
+}
+
+.login-card-header h2 {
+  margin: 4px 0 0;
+
+  font-size: 23px;
+}
+
+.login-divider {
+  height: 1px;
+
+  background: rgba(100, 137, 164, 0.16);
+
+  margin: 22px 0;
+}
+
+/* =========================================================
+   AMPLIFY AUTHENTICATOR
    ========================================================= */
 
 .authenticator-wrapper {
   width: 100%;
   max-width: 100%;
   min-width: 0;
+
   overflow: hidden;
 
   --amplify-colors-background-primary: transparent;
@@ -25,7 +674,8 @@
   --amplify-colors-brand-primary-100: #2bb5ff;
 }
 
-/* Main Amplify router/card */
+/* Router */
+
 .authenticator-wrapper [data-amplify-router] {
   width: 100% !important;
   max-width: 100% !important;
@@ -35,14 +685,18 @@
   padding: 0 !important;
 
   background: transparent !important;
+
   border: none !important;
+
   border-radius: 0 !important;
+
   box-shadow: none !important;
 
   overflow: hidden !important;
 }
 
-/* Amplify internal container */
+/* Internal container */
+
 .authenticator-wrapper [data-amplify-container] {
   width: 100% !important;
   max-width: 100% !important;
@@ -52,11 +706,14 @@
   padding: 0 !important;
 
   background: transparent !important;
+
   border: none !important;
+
   box-shadow: none !important;
 }
 
 /* Amplify card */
+
 .authenticator-wrapper .amplify-card {
   width: 100% !important;
   max-width: 100% !important;
@@ -66,26 +723,29 @@
   padding: 0 !important;
 
   background: transparent !important;
+
   border: none !important;
+
   box-shadow: none !important;
 }
 
 /* Tabs */
+
 .authenticator-wrapper .amplify-tabs {
   width: 100% !important;
-  max-width: 100% !important;
 
-  margin: 0 0 25px 0 !important;
+  margin: 0 0 22px 0 !important;
 
   background: transparent !important;
+
   border: none !important;
 }
 
-/* Tab list */
 .authenticator-wrapper .amplify-tabs__list {
   width: 100% !important;
 
   display: grid !important;
+
   grid-template-columns: 1fr 1fr !important;
 
   border-bottom: 1px solid rgba(92, 130, 158, 0.25) !important;
@@ -93,25 +753,26 @@
   margin: 0 !important;
 }
 
-/* Individual tabs */
 .authenticator-wrapper .amplify-tabs__item {
   width: 100% !important;
 
-  padding: 13px 8px !important;
+  padding: 12px 7px !important;
 
   color: #71869b !important;
+
   background: transparent !important;
 
   border: none !important;
+
   border-bottom: 2px solid transparent !important;
 
-  font-size: 15px !important;
+  font-size: 14px !important;
+
   font-weight: 700 !important;
 
   text-align: center !important;
 }
 
-/* Active tab */
 .authenticator-wrapper .amplify-tabs__item--active {
   color: #29b5ff !important;
 
@@ -121,36 +782,45 @@
 }
 
 /* Form */
+
 .authenticator-wrapper form {
   width: 100% !important;
+
   max-width: 100% !important;
+
   min-width: 0 !important;
 
   margin: 0 !important;
 }
 
-/* Form layout */
 .authenticator-wrapper .amplify-flex {
   max-width: 100% !important;
+
   min-width: 0 !important;
 }
 
 /* Labels */
+
 .authenticator-wrapper label {
   color: #91a7ba !important;
-  font-size: 13px !important;
+
+  font-size: 12px !important;
+
   font-weight: 600 !important;
 }
 
 /* Inputs */
+
 .authenticator-wrapper input {
   width: 100% !important;
+
   max-width: 100% !important;
+
   min-width: 0 !important;
 
   box-sizing: border-box !important;
 
-  height: 48px !important;
+  height: 46px !important;
 
   background: rgba(3, 17, 31, 0.9) !important;
 
@@ -158,19 +828,17 @@
 
   border: 1px solid rgba(84, 129, 159, 0.4) !important;
 
-  border-radius: 9px !important;
+  border-radius: 8px !important;
 
-  padding: 0 14px !important;
+  padding: 0 13px !important;
 
-  font-size: 14px !important;
+  font-size: 13px !important;
 }
 
-/* Input placeholder */
 .authenticator-wrapper input::placeholder {
   color: #5f7387 !important;
 }
 
-/* Input focus */
 .authenticator-wrapper input:focus {
   border-color: #28b4ff !important;
 
@@ -181,30 +849,28 @@
     0 0 20px rgba(40, 180, 255, 0.05) !important;
 }
 
-/* Password field wrapper */
+/* Password */
+
 .authenticator-wrapper [data-amplify-password-field] {
   width: 100% !important;
+
   max-width: 100% !important;
 }
 
-/* Password field */
-.authenticator-wrapper [data-amplify-password-field] input {
-  width: 100% !important;
-}
+/* Buttons */
 
-/* Password visibility button */
-.authenticator-wrapper button[type="button"] {
+.authenticator-wrapper button {
   box-sizing: border-box !important;
 }
 
-/* Primary button */
 .authenticator-wrapper button[data-variation="primary"] {
   width: 100% !important;
+
   max-width: 100% !important;
 
-  min-height: 48px !important;
+  min-height: 46px !important;
 
-  border-radius: 9px !important;
+  border-radius: 8px !important;
 
   background: linear-gradient(
     135deg,
@@ -230,12 +896,12 @@
     0 8px 25px rgba(24, 169, 243, 0.25) !important;
 }
 
-/* Secondary buttons */
 .authenticator-wrapper button[data-variation="link"] {
   color: #29b5ff !important;
 }
 
-/* Error messages */
+/* Errors */
+
 .authenticator-wrapper [role="alert"] {
   color: #ff8e8e !important;
 
@@ -245,18 +911,173 @@
 }
 
 /* Checkbox */
+
 .authenticator-wrapper input[type="checkbox"] {
   width: auto !important;
+
   height: auto !important;
 }
 
-/* Remove unnecessary Amplify spacing */
+/* Fields */
+
 .authenticator-wrapper .amplify-field {
-  margin-bottom: 15px !important;
+  margin-bottom: 14px !important;
 }
 
-/* Prevent every child from overflowing */
+/* Prevent overflow */
+
 .authenticator-wrapper * {
   box-sizing: border-box !important;
+
   max-width: 100%;
+}
+
+/* =========================================================
+   SECURITY NOTE
+   ========================================================= */
+
+.login-security-note {
+  margin-top: 18px;
+
+  padding-top: 14px;
+
+  border-top: 1px solid rgba(100, 137, 164, 0.14);
+
+  color: #627a91;
+
+  font-size: 8px;
+
+  letter-spacing: 1.3px;
+
+  font-weight: 800;
+}
+
+.login-security-note span {
+  color: #2bd67c;
+
+  margin-right: 7px;
+}
+
+.login-security-note.admin-note span {
+  color: #f5bb59;
+}
+
+/* =========================================================
+   FOOTER
+   ========================================================= */
+
+.wave-auth-footer {
+  min-height: 65px;
+
+  padding: 0 5%;
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  gap: 11px;
+
+  color: #526b82;
+
+  font-size: 8px;
+
+  letter-spacing: 1.4px;
+
+  font-weight: 800;
+
+  position: relative;
+
+  z-index: 2;
+}
+
+/* =========================================================
+   RESPONSIVE
+   ========================================================= */
+
+@media (max-width: 1050px) {
+  .wave-auth-main {
+    grid-template-columns: 1fr;
+
+    gap: 45px;
+
+    padding-top: 50px;
+  }
+
+  .wave-auth-hero {
+    max-width: 800px;
+  }
+
+  .wave-access-panel {
+    max-width: 600px;
+  }
+
+  .wave-login-layout {
+    grid-template-columns: 1fr;
+
+    gap: 45px;
+  }
+
+  .wave-login-info {
+    max-width: 800px;
+  }
+
+  .wave-login-card {
+    max-width: 500px;
+  }
+}
+
+@media (max-width: 650px) {
+  .wave-auth-header {
+    height: 80px;
+
+    padding: 0 20px;
+  }
+
+  .wave-brand-title {
+    font-size: 17px;
+  }
+
+  .wave-brand-subtitle {
+    font-size: 10px;
+  }
+
+  .wave-system-status {
+    padding: 7px 10px;
+
+    font-size: 10px;
+  }
+
+  .wave-auth-main,
+  .wave-login-main {
+    padding: 40px 20px;
+  }
+
+  .wave-auth-hero h1,
+  .wave-login-info h1 {
+    font-size: 46px;
+
+    letter-spacing: -2px;
+  }
+
+  .wave-auth-hero p,
+  .wave-login-info p {
+    font-size: 14px;
+  }
+
+  .wave-access-panel,
+  .wave-login-card {
+    padding: 22px;
+  }
+
+  .wave-auth-footer {
+    min-height: 55px;
+
+    font-size: 7px;
+
+    flex-wrap: wrap;
+
+    padding: 15px;
+  }
 }
