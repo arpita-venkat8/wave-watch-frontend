@@ -277,70 +277,54 @@ function AuthenticationPortal() {
       <>
         <App />
 
-        <button
-          type="button"
-          onClick={handleSignOut}
-          aria-label="Sign out"
-          style={{
-            position: "fixed",
-            top: "18px",
-            right: "24px",
-            zIndex: 999999,
+       <button
+  type="button"
+  onClick={handleSignOut}
+  aria-label="Sign out"
+  style={{
+    position: "fixed",
+    top: "28px",
+    right: "110px",
+    zIndex: 999999,
 
-            display: "inline-flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: "8px",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: "8px",
 
-            height: "42px",
-            minWidth: "112px",
+    height: "42px",
+    minWidth: "112px",
 
-            padding: "0 16px",
+    padding: "0 16px",
 
-            border: "1px solid rgba(0, 180, 255, 0.45)",
-            borderRadius: "10px",
+    border: "1px solid rgba(0, 180, 255, 0.45)",
+    borderRadius: "10px",
 
-            background: "rgba(7, 26, 43, 0.96)",
-            color: "#dbeafe",
+    background: "rgba(7, 26, 43, 0.96)",
+    color: "#dbeafe",
 
-            cursor: "pointer",
+    cursor: "pointer",
 
-            fontFamily: "inherit",
-            fontSize: "13px",
-            fontWeight: 700,
+    fontFamily: "inherit",
+    fontSize: "13px",
+    fontWeight: 700,
 
-            boxShadow:
-              "0 8px 24px rgba(0, 0, 0, 0.30)",
+    boxShadow: "0 8px 24px rgba(0, 0, 0, 0.30)",
 
-            backdropFilter: "blur(10px)",
+    backdropFilter: "blur(10px)",
+  }}
+>
+  <span
+    style={{
+      fontSize: "16px",
+      lineHeight: 1,
+    }}
+  >
+    ↪
+  </span>
 
-            transition:
-              "transform 0.2s ease, background 0.2s ease",
-          }}
-          onMouseEnter={(event) => {
-            event.currentTarget.style.transform =
-              "translateY(-1px)";
-            event.currentTarget.style.background =
-              "rgba(9, 42, 67, 0.98)";
-          }}
-          onMouseLeave={(event) => {
-            event.currentTarget.style.transform =
-              "translateY(0)";
-            event.currentTarget.style.background =
-              "rgba(7, 26, 43, 0.96)";
-          }}
-        >
-          <span
-            style={{
-              fontSize: "16px",
-              lineHeight: 1,
-            }}
-          >
-            ↪
-          </span>
-
-          <span>Sign Out</span>
-        </button>
+  <span>Sign Out</span>
+</button>
       </>
     );
   }
