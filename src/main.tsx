@@ -287,20 +287,18 @@ function AuthenticationPortal() {
      ======================================================= */
 
   useEffect(() => {
-    if (
-      authStatus === "authenticated" &&
-      selectedRole &&
-      !verifiedRole &&
-      !checkingRole
-    ) {
-      void verifyRole();
-    }
-  }, [
-    authStatus,
-    selectedRole,
-    verifiedRole,
-    checkingRole,
-  ]);
+  if (
+    authStatus === "authenticated" &&
+    selectedRole &&
+    !verifiedRole &&
+    !checkingRole
+  ) {
+    void verifyRole();
+  }
+  // Intentionally run only when authentication status
+  // or selected portal changes.
+  // Do NOT depend on checkingRole/verifiedRole.
+}, [authStatus, selectedRole]);
 
   /* =======================================================
      AUTHENTICATED USER
@@ -382,12 +380,17 @@ function AuthenticationPortal() {
         <button
           type="button"
           onClick={async () => {
-            setVerifiedRole(null);
-            setSelectedRole(null);
-            setRoleError("");
+  try {
+    setVerifiedRole(null);
+    setSelectedRole(null);
+    setRoleError("");
+    setCheckingRole(false);
 
-            await signOut();
-          }}
+    await signOut();
+  } catch (error) {
+    console.error("Wave Watch sign out failed:", error);
+  }
+}}
           style={{
             position: "fixed",
             top: "18px",
