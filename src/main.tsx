@@ -5,6 +5,7 @@ import {
   Authenticator,
   useAuthenticator,
 } from "@aws-amplify/ui-react";
+import { fetchAuthSession } from "aws-amplify/auth";
 
 import "@aws-amplify/ui-react/styles.css";
 
@@ -17,6 +18,146 @@ import "./Auth.css";
 Amplify.configure(outputs);
 
 /* =========================================================
+   TYPES
+   ========================================================= */
+
+type Role = "CITIZEN" | "ADMIN";
+
+interface RoleErrorProps {
+  message: string;
+  onBack: () => void;
+}
+
+/* =========================================================
+   ROLE ERROR
+   ========================================================= */
+
+function RoleError({ message, onBack }: RoleErrorProps) {
+  return (
+    <div className="wave-auth-page">
+      <div className="wave-auth-background">
+        <div className="wave-grid" />
+        <div className="wave-glow wave-glow-one" />
+        <div className="wave-glow wave-glow-two" />
+      </div>
+
+      <header className="wave-auth-header">
+        <div className="wave-brand">
+          <div className="wave-brand-mark">🌊</div>
+
+          <div>
+            <div className="wave-brand-title">
+              WAVE WATCH
+            </div>
+
+            <div className="wave-brand-subtitle">
+              Coastal Safety Platform
+            </div>
+          </div>
+        </div>
+
+        <div className="wave-system-status">
+          <span className="system-dot" />
+          <span>System Live</span>
+        </div>
+      </header>
+
+      <main
+        style={{
+          minHeight: "calc(100vh - 150px)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: "40px 24px",
+          position: "relative",
+          zIndex: 2,
+        }}
+      >
+        <section
+          style={{
+            width: "100%",
+            maxWidth: "560px",
+            background: "rgba(7, 26, 43, 0.96)",
+            border: "1px solid rgba(0, 180, 255, 0.35)",
+            borderRadius: "18px",
+            padding: "42px",
+            textAlign: "center",
+            boxShadow: "0 24px 70px rgba(0, 0, 0, 0.4)",
+          }}
+        >
+          <div
+            style={{
+              fontSize: "52px",
+              marginBottom: "18px",
+            }}
+          >
+            ⚠️
+          </div>
+
+          <div
+            style={{
+              color: "#60a5fa",
+              fontSize: "12px",
+              fontWeight: 800,
+              letterSpacing: "1.5px",
+              marginBottom: "12px",
+            }}
+          >
+            ACCESS DENIED
+          </div>
+
+          <h2
+            style={{
+              color: "#f8fafc",
+              margin: "0 0 14px",
+              fontSize: "28px",
+            }}
+          >
+            Incorrect Access Type
+          </h2>
+
+          <p
+            style={{
+              color: "#94a3b8",
+              lineHeight: 1.7,
+              margin: "0 auto 28px",
+              maxWidth: "430px",
+            }}
+          >
+            {message}
+          </p>
+
+          <button
+            type="button"
+            onClick={onBack}
+            style={{
+              padding: "12px 22px",
+              borderRadius: "10px",
+              border: "1px solid rgba(0, 180, 255, 0.45)",
+              background: "#0b2942",
+              color: "#dbeafe",
+              cursor: "pointer",
+              fontWeight: 700,
+              fontSize: "13px",
+            }}
+          >
+            ← CHANGE ACCESS TYPE
+          </button>
+        </section>
+      </main>
+
+      <footer className="wave-auth-footer">
+        <span>WAVE WATCH</span>
+        <span>•</span>
+        <span>AWS POWERED</span>
+        <span>•</span>
+        <span>SECURE AUTHENTICATION</span>
+      </footer>
+    </div>
+  );
+}
+
+/* =========================================================
    AUTHENTICATION PORTAL
    ========================================================= */
 
@@ -26,20 +167,175 @@ function AuthenticationPortal() {
     context.signOut,
   ]);
 
-  const [selectedRole, setSelectedRole] = useState<
-    "CITIZEN" | "ADMIN" | null
-  >(null);
+  const [selectedRole, setSelectedRole] = useState<Role | null>(
+    null
+  );
+
+  const [verifiedRole, setVerifiedRole] = useState<Role | null>(
+    null
+  );
+
+  const [roleError, setRoleError] = useState("");
+
+  const [checkingRole, setCheckingRole] = useState(false);
+
+  /* =======================================================
+     VERIFY COGNITO ROLE
+     ======================================================= */
+
+  const verifyRole = async () => {
+    if (!selectedRole) {
+      return;
+    }
+
+    setCheckingRole(true);
+    setRoleError("");
+
+    try {
+      const session = await fetchAuthSession();
+
+      const groups =
+        (session.tokens?.idToken?.payload[
+          "cognito:groups"
+        ] as string[] | undefined) ?? [];
+
+      console.log("Wave Watch Cognito groups:", groups);
+      console.log(
+        "Wave Watch selected role:",
+        selectedRole
+      );
+
+      const hasSelectedRole = groups.includes(selectedRole);
+
+      if (!hasSelectedRole) {
+        const actualRole =
+          groups.includes("ADMIN")
+            ? "ADMIN"
+            : groups.includes("CITIZEN")
+              ? "CITIZEN"
+              : null;
+
+        if (actualRole) {
+          setRoleError(
+            `This account is registered as ${actualRole}. You selected ${selectedRole}. Please select the correct access type.`
+          );
+        } else {
+          setRoleError(
+            "This account does not have a valid Wave Watch role. Please contact the administrator."
+          );
+        }
+
+        setVerifiedRole(null);
+
+        /*
+         * Sign the user out so the wrong-role account
+         * cannot remain authenticated.
+         */
+        await signOut();
+
+        return;
+      }
+
+      /*
+       * Role is valid.
+       * Store the verified role for this authenticated session.
+       */
+      setVerifiedRole(selectedRole);
+      setRoleError("");
+    } catch (error) {
+      console.error(
+        "Wave Watch role verification failed:",
+        error
+      );
+
+      setVerifiedRole(null);
+
+      setRoleError(
+        "Unable to verify your Wave Watch role. Please sign in again."
+      );
+
+      await signOut();
+    } finally {
+      setCheckingRole(false);
+    }
+  };
 
   /* =======================================================
      AUTHENTICATED USER
-     
-     IMPORTANT:
-     The dashboard is rendered OUTSIDE the login card.
-     This prevents App.tsx from being squeezed into the
-     authentication layout.
      ======================================================= */
 
   if (authStatus === "authenticated") {
+    /*
+     * We have authenticated with Cognito but have not
+     * yet verified the selected Wave Watch role.
+     */
+    if (!verifiedRole) {
+      if (checkingRole) {
+        return (
+          <div className="wave-auth-page">
+            <div className="wave-auth-background">
+              <div className="wave-grid" />
+              <div className="wave-glow wave-glow-one" />
+              <div className="wave-glow wave-glow-two" />
+            </div>
+
+            <main
+              style={{
+                minHeight: "100vh",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                position: "relative",
+                zIndex: 2,
+              }}
+            >
+              <div
+                style={{
+                  color: "#dbeafe",
+                  textAlign: "center",
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: "42px",
+                    marginBottom: "18px",
+                  }}
+                >
+                  🌊
+                </div>
+
+                <h2 style={{ marginBottom: "8px" }}>
+                  Verifying Access
+                </h2>
+
+                <p
+                  style={{
+                    color: "#94a3b8",
+                    margin: 0,
+                  }}
+                >
+                  Checking your Wave Watch role...
+                </p>
+              </div>
+            </main>
+          </div>
+        );
+      }
+
+      /*
+       * This happens when Cognito is authenticated but
+       * verification has not yet completed.
+       */
+      return null;
+    }
+
+    /*
+     * VERIFIED CITIZEN / ADMIN
+     *
+     * For now App.tsx remains the dashboard.
+     * In the next phase we will split the dashboard
+     * into Citizen and Admin functionality.
+     */
     return (
       <>
         <App />
@@ -47,7 +343,12 @@ function AuthenticationPortal() {
         {/* Temporary Sign Out button for testing */}
         <button
           type="button"
-          onClick={signOut}
+          onClick={async () => {
+            setVerifiedRole(null);
+            setSelectedRole(null);
+            setRoleError("");
+            await signOut();
+          }}
           style={{
             position: "fixed",
             top: "18px",
@@ -55,18 +356,37 @@ function AuthenticationPortal() {
             zIndex: 99999,
             padding: "10px 18px",
             borderRadius: "10px",
-            border: "1px solid rgba(0, 180, 255, 0.45)",
+            border:
+              "1px solid rgba(0, 180, 255, 0.45)",
             background: "#071a2b",
             color: "#dbeafe",
             cursor: "pointer",
             fontWeight: 700,
             fontSize: "13px",
-            boxShadow: "0 8px 24px rgba(0, 0, 0, 0.25)",
+            boxShadow:
+              "0 8px 24px rgba(0, 0, 0, 0.25)",
           }}
         >
           Sign Out
         </button>
       </>
+    );
+  }
+
+  /* =======================================================
+     ROLE ERROR
+     ======================================================= */
+
+  if (roleError) {
+    return (
+      <RoleError
+        message={roleError}
+        onBack={() => {
+          setRoleError("");
+          setSelectedRole(null);
+          setVerifiedRole(null);
+        }}
+      />
     );
   }
 
@@ -77,21 +397,15 @@ function AuthenticationPortal() {
   if (!selectedRole) {
     return (
       <div className="wave-auth-page">
-
         <div className="wave-auth-background">
           <div className="wave-grid" />
           <div className="wave-glow wave-glow-one" />
           <div className="wave-glow wave-glow-two" />
         </div>
 
-        {/* HEADER */}
         <header className="wave-auth-header">
-
           <div className="wave-brand">
-
-            <div className="wave-brand-mark">
-              🌊
-            </div>
+            <div className="wave-brand-mark">🌊</div>
 
             <div>
               <div className="wave-brand-title">
@@ -102,22 +416,16 @@ function AuthenticationPortal() {
                 Coastal Safety Platform
               </div>
             </div>
-
           </div>
 
           <div className="wave-system-status">
             <span className="system-dot" />
             <span>System Live</span>
           </div>
-
         </header>
 
-        {/* MAIN */}
         <main className="wave-auth-main">
-
-          {/* LEFT SIDE */}
           <section className="wave-auth-hero">
-
             <div className="wave-monitor-pill">
               <span>🌊</span>
               REAL-TIME COASTAL MONITORING
@@ -136,7 +444,6 @@ function AuthenticationPortal() {
             </p>
 
             <div className="wave-feature-list">
-
               <div>
                 <span>✓</span>
                 Citizen hazard reporting
@@ -151,23 +458,17 @@ function AuthenticationPortal() {
                 <span>✓</span>
                 AWS cloud intelligence
               </div>
-
             </div>
-
           </section>
 
-          {/* RIGHT SIDE */}
           <section className="wave-access-panel">
-
             <div className="panel-top-line" />
 
             <div className="panel-label">
               SECURE ACCESS
             </div>
 
-            <h2>
-              Welcome to Wave Watch
-            </h2>
+            <h2>Welcome to Wave Watch</h2>
 
             <p className="panel-description">
               Select your access type to continue to the
@@ -175,20 +476,20 @@ function AuthenticationPortal() {
             </p>
 
             <div className="access-options">
-
               {/* CITIZEN */}
               <button
                 type="button"
                 className="access-card citizen-access"
-                onClick={() => setSelectedRole("CITIZEN")}
+                onClick={() => {
+                  setSelectedRole("CITIZEN");
+                  setRoleError("");
+                }}
               >
-
                 <div className="access-icon">
                   ◉
                 </div>
 
                 <div className="access-content">
-
                   <div className="access-title">
                     Citizen
                   </div>
@@ -201,24 +502,23 @@ function AuthenticationPortal() {
                   <div className="access-arrow">
                     ENTER CITIZEN PORTAL →
                   </div>
-
                 </div>
-
               </button>
 
               {/* ADMIN */}
               <button
                 type="button"
                 className="access-card admin-access"
-                onClick={() => setSelectedRole("ADMIN")}
+                onClick={() => {
+                  setSelectedRole("ADMIN");
+                  setRoleError("");
+                }}
               >
-
                 <div className="access-icon">
                   ◆
                 </div>
 
                 <div className="access-content">
-
                   <div className="access-title">
                     Admin
                   </div>
@@ -231,23 +531,17 @@ function AuthenticationPortal() {
                   <div className="access-arrow">
                     ENTER ADMIN CONSOLE →
                   </div>
-
                 </div>
-
               </button>
-
             </div>
 
             <div className="access-security">
               <span>●</span>
               AWS COGNITO SECURED ACCESS
             </div>
-
           </section>
-
         </main>
 
-        {/* FOOTER */}
         <footer className="wave-auth-footer">
           <span>WAVE WATCH</span>
           <span>•</span>
@@ -255,7 +549,6 @@ function AuthenticationPortal() {
           <span>•</span>
           <span>COASTAL SAFETY INTELLIGENCE</span>
         </footer>
-
       </div>
     );
   }
@@ -266,21 +559,15 @@ function AuthenticationPortal() {
 
   return (
     <div className="wave-auth-page">
-
       <div className="wave-auth-background">
         <div className="wave-grid" />
         <div className="wave-glow wave-glow-one" />
         <div className="wave-glow wave-glow-two" />
       </div>
 
-      {/* HEADER */}
       <header className="wave-auth-header">
-
         <div className="wave-brand">
-
-          <div className="wave-brand-mark">
-            🌊
-          </div>
+          <div className="wave-brand-mark">🌊</div>
 
           <div>
             <div className="wave-brand-title">
@@ -291,33 +578,28 @@ function AuthenticationPortal() {
               Coastal Safety Platform
             </div>
           </div>
-
         </div>
 
         <div className="wave-system-status">
           <span className="system-dot" />
           <span>System Live</span>
         </div>
-
       </header>
 
-      {/* LOGIN AREA */}
       <main className="wave-login-main">
-
-        {/* BACK BUTTON */}
         <button
           type="button"
           className="back-access-button"
-          onClick={() => setSelectedRole(null)}
+          onClick={() => {
+            setSelectedRole(null);
+            setRoleError("");
+          }}
         >
           ← CHANGE ACCESS TYPE
         </button>
 
         <div className="wave-login-layout">
-
-          {/* LEFT INFORMATION */}
           <section className="wave-login-info">
-
             <div className="wave-monitor-pill">
               <span>🌊</span>
               SECURE COASTAL ACCESS
@@ -336,7 +618,6 @@ function AuthenticationPortal() {
             </p>
 
             <div className="login-system-info">
-
               <div className="system-info-item">
                 <span className="info-dot" />
                 AWS CLOUD PLATFORM
@@ -351,16 +632,11 @@ function AuthenticationPortal() {
                 <span className="info-dot" />
                 REAL-TIME MONITORING
               </div>
-
             </div>
-
           </section>
 
-          {/* COGNITO LOGIN CARD */}
           <section className="wave-login-card">
-
             <div className="login-card-header">
-
               <div
                 className={`login-role-icon ${
                   selectedRole === "ADMIN"
@@ -374,7 +650,6 @@ function AuthenticationPortal() {
               </div>
 
               <div>
-
                 <div className="login-card-label">
                   {selectedRole === "ADMIN"
                     ? "ADMIN CONSOLE"
@@ -386,25 +661,32 @@ function AuthenticationPortal() {
                     ? "Admin Sign In"
                     : "Citizen Access"}
                 </h2>
-
               </div>
-
             </div>
 
             <div className="login-divider" />
 
-            {/* =================================================
-                IMPORTANT:
-                Authenticator is ONLY used for login/signup.
-                App.tsx is NOT placed inside it.
-                ================================================= */}
-
             <div className="authenticator-wrapper">
-
               <Authenticator
+                /*
+                 * We keep Citizen signup enabled.
+                 *
+                 * Admin accounts are currently created
+                 * and assigned to ADMIN by the administrator
+                 * in Cognito. This prevents public users from
+                 * self-registering as ADMIN.
+                 */
                 hideSignUp={selectedRole === "ADMIN"}
+                onStateChange={({ route }) => {
+                  /*
+                   * Once Amplify completes authentication,
+                   * verifyRole() will inspect Cognito groups.
+                   */
+                  if (route === "authenticated") {
+                    void verifyRole();
+                  }
+                }}
               />
-
             </div>
 
             <div
@@ -414,22 +696,16 @@ function AuthenticationPortal() {
                   : ""
               }`}
             >
-
               <span>●</span>
 
               {selectedRole === "ADMIN"
                 ? "AUTHORIZED ADMINISTRATORS ONLY"
                 : "SECURE CITIZEN ACCOUNT"}
-
             </div>
-
           </section>
-
         </div>
-
       </main>
 
-      {/* FOOTER */}
       <footer className="wave-auth-footer">
         <span>WAVE WATCH</span>
         <span>•</span>
@@ -437,7 +713,6 @@ function AuthenticationPortal() {
         <span>•</span>
         <span>SECURE AUTHENTICATION</span>
       </footer>
-
     </div>
   );
 }
