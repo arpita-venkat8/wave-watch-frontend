@@ -39,20 +39,6 @@ type PossibleIncident = {
 };
 
 function App() {
-  const getAuthHeaders = async () => {
-    const session = await fetchAuthSession();
-    const token = session.tokens?.idToken?.toString();
-
-    if (!token) {
-      throw new Error("Authentication session expired. Please sign in again.");
-    }
-
-    return {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    };
-  };
-
   const [showModal, setShowModal] = useState(false);
   const [isMapExpanded, setIsMapExpanded] = useState(false);
 
@@ -65,6 +51,27 @@ function App() {
 
   const AWS_REGION = "ap-southeast-2";
   const MAP_STYLE = "Standard";
+
+  // =========================================================
+  // AUTHENTICATED API HEADERS
+  // =========================================================
+  // API Gateway now requires a valid Cognito JWT for protected
+  // report and correlation endpoints.
+  const getAuthHeaders = async () => {
+    const session = await fetchAuthSession();
+    const token = session.tokens?.idToken?.toString();
+
+    if (!token) {
+      throw new Error(
+        "Your login session has expired. Please sign in again."
+      );
+    }
+
+    return {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    };
+  };
 
   // =========================================================
   // REPORT FORM STATES
@@ -556,7 +563,6 @@ function App() {
         "https://cw6ehoudu9.execute-api.ap-southeast-2.amazonaws.com/reports",
         {
           method: "POST",
-
           headers: await getAuthHeaders(),
 
           body: JSON.stringify({
