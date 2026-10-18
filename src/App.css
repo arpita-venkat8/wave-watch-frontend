@@ -2739,3 +2739,25 @@ html:has(.modal-overlay), body:has(.modal-overlay) { overflow: hidden !important
   width: 100% !important;
   margin-top: 16px !important;
 }
+
+/* =========================================================
+   PHOTO EVIDENCE FILE FIELD - VERTICAL CENTERING FIX ONLY
+   File inputs ignore flex alignment, so centre with padding instead.
+   ========================================================= */
+
+.modal-overlay .modal:not(.report-details-modal) input[type="file"] {
+  display: block !important;
+  height: 44px !important;
+  min-height: 44px !important;
+  padding: 7px 10px !important;
+  line-height: 28px !important;
+  box-sizing: border-box !important;
+}
+
+.modal-overlay .modal:not(.report-details-modal) input[type="file"]::file-selector-button {
+  height: 28px;
+  margin: 0 12px 0 0;
+  padding: 0 12px;
+  line-height: 1;
+  vertical-align: middle;
+}
