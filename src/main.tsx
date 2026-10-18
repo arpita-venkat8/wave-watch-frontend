@@ -266,10 +266,11 @@ function AuthenticationPortal() {
             position: "fixed",
 
             /*
-             * Positioned to the LEFT of the existing
+             * Vertically centered on the same line as the
              * System Live indicator.
              */
-            top: "30px",
+            top: "36px",
+            transform: "translateY(-50%)",
             right: "260px",
 
             zIndex: 999999,
