@@ -2503,3 +2503,20 @@ section.reports[style] {
     min-height: 38px !important;
   }
 }
+
+
+/* FINAL ADMIN REPORT DETAILS POPUP - rectangle, aligned, single screen */
+html:has(.modal-overlay), body:has(.modal-overlay) { overflow: hidden !important; }
+.modal-overlay { background: rgba(1, 8, 18, 0.92) !important; backdrop-filter: blur(7px) !important; }
+.report-details-modal { width:min(820px,calc(100vw - 48px)) !important; max-width:820px !important; height:min(760px,calc(100vh - 40px)) !important; max-height:calc(100vh - 40px) !important; overflow-y:auto !important; box-sizing:border-box !important; margin:0 auto !important; padding:24px 28px 20px !important; border-radius:14px !important; }
+.report-details-modal .modal-icon { font-size:25px !important; line-height:1 !important; margin:0 0 4px !important; }
+.report-details-modal h2 { margin:0 0 3px !important; font-size:30px !important; line-height:1.15 !important; }
+.report-details-modal > p { margin:0 0 16px !important; font-size:13px !important; line-height:1.35 !important; }
+.report-details-modal > div[style*="grid-template-columns"] { grid-template-columns:1fr 1fr 1.35fr !important; gap:18px !important; margin-bottom:16px !important; }
+.report-details-modal > div[style*="grid-template-columns"] small { font-size:10px !important; letter-spacing:1.2px !important; }
+.report-details-modal > div[style*="grid-template-columns"] div div { font-size:17px !important; line-height:1.25 !important; }
+.report-details-modal > div[style*="background: rgba(15,23,42"] { padding:16px 18px !important; border-radius:11px !important; }
+.report-details-modal > div[style*="background: rgba(15,23,42"] > strong { display:block !important; font-size:16px !important; line-height:1.2 !important; margin:0 !important; }
+.report-details-modal > div[style*="background: rgba(15,23,42"] img { width:100% !important; height:220px !important; max-height:220px !important; object-fit:contain !important; display:block !important; margin:0 auto !important; border-radius:9px !important; background:#071522 !important; }
+.report-details-modal .close-button { top:12px !important; right:16px !important; font-size:25px !important; }
+@media (max-height:820px) { .report-details-modal { height:calc(100vh - 24px) !important; max-height:calc(100vh - 24px) !important; padding:18px 24px 15px !important; } .report-details-modal h2 { font-size:26px !important; } .report-details-modal > p { margin-bottom:10px !important; } .report-details-modal > div[style*="grid-template-columns"] { margin-bottom:10px !important; } .report-details-modal > div[style*="background: rgba(15,23,42"] { padding:12px 15px !important; } .report-details-modal > div[style*="background: rgba(15,23,42"] img { height:175px !important; max-height:175px !important; } }
