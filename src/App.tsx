@@ -194,9 +194,7 @@ function App() {
         {
           method: "PATCH",
           headers: await getAuthHeaders(),
-          body: JSON.stringify({
-            status: "RESOLVED",
-          }),
+          body: JSON.stringify({ status: "RESOLVED" }),
         }
       );
 
@@ -204,34 +202,25 @@ function App() {
 
       if (!response.ok) {
         throw new Error(
-          data.error ||
-            data.message ||
-            "Failed to resolve report."
+          data.error || data.message || "Failed to resolve report."
         );
       }
 
       setBackendReports((currentReports) =>
         currentReports.map((report) =>
           report.reportId === reportId
-            ? {
-                ...report,
-                status: "RESOLVED",
-              }
+            ? { ...report, status: "RESOLVED" }
             : report
         )
       );
 
       alert("Report marked as Resolved successfully.");
     } catch (error) {
-      console.error(
-        "Error resolving report:",
-        error
-      );
-
+      console.error("Error resolving report:", error);
       alert(
         error instanceof Error
           ? error.message
-          : "Failed to resolve report."
+          : "Failed to update report status."
       );
     } finally {
       setUpdatingReportId(null);
@@ -1677,20 +1666,26 @@ function App() {
 
             backendReports.map((report) => {
 
+                const normalizedReportSeverity =
+                  normalizedSeverity(report.severity);
+
                 const severity =
-                  report.severity === "HIGH"
+                  normalizedReportSeverity === "HIGH"
                     ? "High"
-                    : report.severity === "LOW"
+                    : normalizedReportSeverity === "LOW"
                       ? "Low"
                       : "Medium";
 
+                const normalizedReportStatus =
+                  normalizedStatus(report.status);
+
                 const status =
-                  report.status === "PENDING" ||
-                  report.status === "REVIEW"
+                  normalizedReportStatus === "PENDING" ||
+                  normalizedReportStatus === "REVIEW"
                     ? "Under Review"
-                    : report.status === "REVIEWED"
+                    : normalizedReportStatus === "REVIEWED"
                       ? "Reviewed"
-                      : report.status === "RESOLVED"
+                      : normalizedReportStatus === "RESOLVED"
                         ? "Resolved"
                         : "Active";
 
@@ -1749,8 +1744,8 @@ function App() {
                       </span>
 
                       {userRole === "ADMIN" &&
-                        (report.status === "PENDING" ||
-                          report.status === "REVIEW") && (
+                        (normalizedReportStatus === "PENDING" ||
+                          normalizedReportStatus === "REVIEW") && (
                           <button
                             type="button"
                             onClick={() =>
@@ -1785,8 +1780,7 @@ function App() {
                         )}
 
                       {userRole === "ADMIN" &&
-                        (report.status === "REVIEWED" ||
-                          report.status === "ACTIVE") && (
+                        normalizedReportStatus === "REVIEWED" && (
                           <button
                             type="button"
                             onClick={() =>
@@ -1796,9 +1790,9 @@ function App() {
                               updatingReportId === report.reportId
                             }
                             style={{
-                              border: "1px solid rgba(96, 165, 250, 0.45)",
-                              background: "rgba(96, 165, 250, 0.12)",
-                              color: "#93c5fd",
+                              border: "1px solid rgba(34, 197, 94, 0.55)",
+                              background: "rgba(34, 197, 94, 0.14)",
+                              color: "#86efac",
                               borderRadius: "8px",
                               padding: "6px 10px",
                               fontSize: "11px",
