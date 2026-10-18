@@ -632,6 +632,60 @@ function AuthenticationPortal() {
 
             <div className="login-divider" />
 
+            <style>{`
+              .wave-login-main {
+                min-height: 0;
+                overflow-y: auto;
+                overflow-x: hidden;
+                padding-bottom: 24px;
+              }
+
+              .wave-login-layout {
+                align-items: flex-start;
+              }
+
+              .wave-login-card {
+                max-height: calc(100vh - 90px);
+                overflow-y: auto;
+                overflow-x: hidden;
+              }
+
+              .authenticator-wrapper {
+                width: 100%;
+                max-height: 760px;
+                overflow-y: auto;
+                overflow-x: hidden;
+              }
+
+              .authenticator-wrapper [data-amplify-authenticator],
+              .authenticator-wrapper .amplify-authenticator {
+                width: 100%;
+                min-height: 0;
+                background: transparent !important;
+              }
+
+              .authenticator-wrapper .amplify-heading,
+              .authenticator-wrapper .amplify-text,
+              .authenticator-wrapper .amplify-label,
+              .authenticator-wrapper .amplify-field-group__outer-label,
+              .authenticator-wrapper .amplify-field-group__label,
+              .authenticator-wrapper h2,
+              .authenticator-wrapper h3,
+              .authenticator-wrapper p,
+              .authenticator-wrapper label {
+                color: #dbeafe !important;
+              }
+
+              .authenticator-wrapper .amplify-field__show-password,
+              .authenticator-wrapper .amplify-button--link {
+                color: #38bdf8 !important;
+              }
+
+              .authenticator-wrapper input {
+                color: #e5f3ff !important;
+              }
+            `}</style>
+
             <div className="authenticator-wrapper">
 
               <Authenticator
