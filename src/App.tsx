@@ -175,6 +175,70 @@ function App() {
   };
 
   // =========================================================
+  // ADMIN: MARK REPORT AS RESOLVED
+  // =========================================================
+
+  const markReportAsResolved = async (reportId: string) => {
+    if (userRole !== "ADMIN") {
+      alert("Only administrators can resolve reports.");
+      return;
+    }
+
+    try {
+      setUpdatingReportId(reportId);
+
+      const response = await fetch(
+        `https://cw6ehoudu9.execute-api.ap-southeast-2.amazonaws.com/reports/${encodeURIComponent(
+          reportId
+        )}/status`,
+        {
+          method: "PATCH",
+          headers: await getAuthHeaders(),
+          body: JSON.stringify({
+            status: "RESOLVED",
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.error ||
+            data.message ||
+            "Failed to resolve report."
+        );
+      }
+
+      setBackendReports((currentReports) =>
+        currentReports.map((report) =>
+          report.reportId === reportId
+            ? {
+                ...report,
+                status: "RESOLVED",
+              }
+            : report
+        )
+      );
+
+      alert("Report marked as Resolved successfully.");
+    } catch (error) {
+      console.error(
+        "Error resolving report:",
+        error
+      );
+
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Failed to resolve report."
+      );
+    } finally {
+      setUpdatingReportId(null);
+    }
+  };
+
+  // =========================================================
   // REPORT FORM STATES
   // =========================================================
 
@@ -204,51 +268,65 @@ function App() {
   // REAL DASHBOARD METRICS FROM DYNAMODB REPORTS
   // =========================================================
 
-  // =========================================================
-  // REPORT STATUS MODEL
-  // PENDING  -> Under Review
-  // REVIEWED -> Reviewed
-  // ACTIVE   -> Active Hazard
-  // RESOLVED -> Resolved
-  // =========================================================
+  // Normalize status and severity values before calculating dashboard metrics.
+  const normalizedStatus = (status: string | undefined) =>
+    String(status || "PENDING").trim().toUpperCase();
 
+  const normalizedSeverity = (severity: string | undefined) => {
+    const value = String(severity || "MEDIUM").trim().toUpperCase();
+    return value === "HIGH" || value === "MEDIUM" || value === "LOW"
+      ? value
+      : "MEDIUM";
+  };
+
+  // Status cards
   const activeReports = backendReports.filter(
-    (report) => report.status === "ACTIVE"
+    (report) => normalizedStatus(report.status) === "ACTIVE"
   );
 
-  const pendingReports = backendReports.filter(
-    (report) => report.status === "PENDING" || report.status === "REVIEW"
-  );
-
-  const reviewedReports = backendReports.filter(
-    (report) => report.status === "REVIEWED"
-  );
+  const pendingReports = backendReports.filter((report) => {
+    const status = normalizedStatus(report.status);
+    return status === "PENDING" || status === "REVIEW";
+  });
 
   const resolvedReports = backendReports.filter(
-    (report) => report.status === "RESOLVED"
+    (report) => normalizedStatus(report.status) === "RESOLVED"
   );
 
+  // Severity summary: count every unresolved report, including
+  // Under Review, Reviewed, and Active reports.
   const highActiveReports = backendReports.filter(
-    (report) => report.severity === "HIGH" && report.status === "ACTIVE"
+    (report) =>
+      normalizedSeverity(report.severity) === "HIGH" &&
+      normalizedStatus(report.status) !== "RESOLVED"
   );
 
   const mediumActiveReports = backendReports.filter(
-    (report) => report.severity === "MEDIUM" && report.status === "ACTIVE"
+    (report) =>
+      normalizedSeverity(report.severity) === "MEDIUM" &&
+      normalizedStatus(report.status) !== "RESOLVED"
   );
 
   const lowActiveReports = backendReports.filter(
-    (report) => report.severity === "LOW" && report.status === "ACTIVE"
+    (report) =>
+      normalizedSeverity(report.severity) === "LOW" &&
+      normalizedStatus(report.status) !== "RESOLVED"
   );
 
-  // Current alerts contain only genuinely ACTIVE hazards.
-  // Reviewed reports are no longer treated as active alerts.
-  // Higher severity is shown first, then newest.
+  // Current Alerts: all unresolved hazards are current alerts.
+  // Only RESOLVED reports are removed.
   const currentAlerts = [...backendReports]
-    .filter((report) => report.status === "ACTIVE")
+    .filter((report) => normalizedStatus(report.status) !== "RESOLVED")
     .sort((a, b) => {
-      const severityRank = { HIGH: 3, MEDIUM: 2, LOW: 1 };
+      const severityRank: Record<string, number> = {
+        HIGH: 3,
+        MEDIUM: 2,
+        LOW: 1,
+      };
+
       const severityDifference =
-        severityRank[b.severity] - severityRank[a.severity];
+        (severityRank[normalizedSeverity(b.severity)] || 0) -
+        (severityRank[normalizedSeverity(a.severity)] || 0);
 
       if (severityDifference !== 0) return severityDifference;
 
@@ -391,13 +469,17 @@ function App() {
       const normalizedReports: BackendReport[] = (data.reports || [])
         .map((report: BackendReport) => ({
           ...report,
-          severity:
-            report.severity === "HIGH" ||
-            report.severity === "LOW" ||
-            report.severity === "MEDIUM"
-              ? report.severity
-              : "MEDIUM",
-          status: report.status || "PENDING",
+          severity: (() => {
+            const value = String(report.severity || "MEDIUM")
+              .trim()
+              .toUpperCase();
+            return value === "HIGH" || value === "MEDIUM" || value === "LOW"
+              ? value
+              : "MEDIUM";
+          })(),
+          status: String(report.status || "PENDING")
+            .trim()
+            .toUpperCase(),
         }))
         .sort((a: BackendReport, b: BackendReport) => {
           return (
@@ -906,10 +988,7 @@ function App() {
           </div>
         </div>
 
-        <div
-          className="stat-card stat-info"
-          title={`Reviewed reports: ${reviewedReports.length}`}
-        >
+        <div className="stat-card stat-info">
           <div className="stat-icon">◎</div>
           <div>
             <span>Citizen Reports</span>
@@ -1151,7 +1230,15 @@ function App() {
                       </span>
 
                       <small>
-                        {report.severity} • {report.status === "PENDING" ? "Under Review" : "Active"} • {timeAgo}
+                        {report.severity} • {
+                            report.status === "PENDING" || report.status === "REVIEW"
+                              ? "Under Review"
+                              : report.status === "REVIEWED"
+                                ? "Reviewed"
+                                : report.status === "RESOLVED"
+                                  ? "Resolved"
+                                  : "Active"
+                          } • {timeAgo}
                       </small>
                     </div>
                   </div>
@@ -1694,6 +1781,42 @@ function App() {
                             {updatingReportId === report.reportId
                               ? "Updating..."
                               : "✓ Mark as Reviewed"}
+                          </button>
+                        )}
+
+                      {userRole === "ADMIN" &&
+                        (report.status === "REVIEWED" ||
+                          report.status === "ACTIVE") && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              markReportAsResolved(report.reportId)
+                            }
+                            disabled={
+                              updatingReportId === report.reportId
+                            }
+                            style={{
+                              border: "1px solid rgba(96, 165, 250, 0.45)",
+                              background: "rgba(96, 165, 250, 0.12)",
+                              color: "#93c5fd",
+                              borderRadius: "8px",
+                              padding: "6px 10px",
+                              fontSize: "11px",
+                              fontWeight: 700,
+                              cursor:
+                                updatingReportId === report.reportId
+                                  ? "not-allowed"
+                                  : "pointer",
+                              opacity:
+                                updatingReportId === report.reportId
+                                  ? 0.6
+                                  : 1,
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {updatingReportId === report.reportId
+                              ? "Updating..."
+                              : "✓ Mark as Resolved"}
                           </button>
                         )}
                     </div>
