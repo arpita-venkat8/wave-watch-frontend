@@ -1302,7 +1302,7 @@ footer {
 
 
 /* =========================================
-   WAVE WATCH HERO ANIMATION ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â FINAL
+   WAVE WATCH HERO ANIMATION - FINAL
    ========================================= */
 .hero-visual::before,.hero-visual::after{content:"";position:absolute;left:50%;top:50%;border-radius:50%;pointer-events:none;transform:translate(-50%,-50%)}
 .hero-visual::before{width:390px;height:390px;border:1px solid rgba(56,189,248,.22);box-shadow:0 0 35px rgba(14,165,233,.12),inset 0 0 35px rgba(14,165,233,.05);animation:heroRadarPulse 3s ease-in-out infinite}
@@ -1321,7 +1321,7 @@ footer {
 @keyframes alertBlink{0%,100%{opacity:1;text-shadow:0 0 0 rgba(248,113,113,0)}50%{opacity:.65;text-shadow:0 0 12px rgba(248,113,113,.65)}}
 @media (prefers-reduced-motion:reduce){.hero-visual::before,.hero-visual::after,.ocean-circle,.wave-one,.wave-two,.wave-three,.location-pin,.floating-card,.small-label{animation:none!important}}
 /* =========================================================
-   PROFESSIONAL UI POLISH Ã¢â‚¬â€ VISUAL ONLY
+   PROFESSIONAL UI POLISH - VISUAL ONLY
    No application logic or backend behavior is changed.
    ========================================================= */
 
@@ -1631,7 +1631,7 @@ select {
 }
 
 /* =========================================================
-   WAVE WATCH â€” COASTAL RADAR HERO
+   WAVE WATCH - COASTAL RADAR HERO
    ========================================================= */
 
 .hero-visual {
@@ -1836,7 +1836,7 @@ select {
 }
 
 /* =========================================================
-   WAVE WATCH â€” PROFESSIONAL CLASSIC DARK BLUE THEME
+   WAVE WATCH - PROFESSIONAL CLASSIC DARK BLUE THEME
    ========================================================= */
 
 :root {
@@ -2346,7 +2346,7 @@ section.reports[style] {
 }
 
 /* =========================================================
-   FINAL VISUAL FIXES â€” ONLY THE TWO REQUESTED ISSUES
+   FINAL VISUAL FIXES - ONLY THE TWO REQUESTED ISSUES
    1. Keep the report modal fully aligned inside the viewport.
    2. Reduce the large gap before Recent Reports on Citizen only.
    ========================================================= */
@@ -2370,7 +2370,7 @@ section.reports[style] {
 }
 
 /* =========================================================
-   FINAL REPORT MODAL FIX â€” ONLY REQUESTED VISUAL CHANGES
+   FINAL REPORT MODAL FIX - ONLY REQUESTED VISUAL CHANGES
    - Hide everything behind the report modal, including navbar/sign-out.
    - Prevent the background page from scrolling while modal is open.
    - Keep the complete report form visible on one desktop screen.
@@ -2522,7 +2522,7 @@ html:has(.modal-overlay), body:has(.modal-overlay) { overflow: hidden !important
 @media (max-height:820px) { .report-details-modal { height:calc(100vh - 24px) !important; max-height:calc(100vh - 24px) !important; padding:18px 24px 15px !important; } .report-details-modal h2 { font-size:26px !important; } .report-details-modal > p { margin-bottom:10px !important; } .report-details-modal > div[style*="grid-template-columns"] { margin-bottom:10px !important; } .report-details-modal > div[style*="background: rgba(15,23,42"] { padding:12px 15px !important; } .report-details-modal > div[style*="background: rgba(15,23,42"] img { height:175px !important; max-height:175px !important; } }
 
 /* =========================================================
-   FINAL SPACING FIX â€” ADMIN REPORT DETAILS ONLY
+   FINAL SPACING FIX - ADMIN REPORT DETAILS ONLY
    Compact content-height card with breathing room above/below.
    ========================================================= */
 
@@ -2591,4 +2591,55 @@ html:has(.modal-overlay), body:has(.modal-overlay) { overflow: hidden !important
     height: 165px !important;
     max-height: 165px !important;
   }
+}
+
+/* =========================================================
+   REPORT DETAILS MODAL - ALIGNMENT FIX ONLY
+   (added at the very end so it overrides the rules above)
+   ========================================================= */
+
+/* 1. Header: warning icon inline with the title, close button anchored to the padding */
+.report-details-modal {
+  position: relative !important;
+}
+
+.report-details-modal .modal-icon,
+.report-details-modal h2 {
+  display: inline-block !important;
+  vertical-align: middle !important;
+}
+
+.report-details-modal .modal-icon {
+  margin: 0 10px 0 0 !important;
+}
+
+.report-details-modal h2 {
+  margin: 0 !important;
+}
+
+.report-details-modal > p {
+  margin: 4px 0 16px !important;
+}
+
+.report-details-modal .close-button {
+  position: absolute !important;
+  top: 22px !important;
+  right: 26px !important;
+  padding: 0 !important;
+  line-height: 1 !important;
+}
+
+/* 2. Stats row: give the long date more room so it doesn't crowd the edge */
+.report-details-modal > div[style*="grid-template-columns"] {
+  grid-template-columns: 0.8fr 0.8fr 1.6fr !important;
+  gap: 16px !important;
+}
+
+.report-details-modal > div[style*="grid-template-columns"] div div {
+  white-space: nowrap !important;
+}
+
+/* 3. Inner card: reduce side padding so its text sits closer to the outer left edge */
+.report-details-modal > div[style*="background: rgba(15,23,42"] {
+  padding: 14px 16px !important;
 }
