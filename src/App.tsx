@@ -204,12 +204,24 @@ function App() {
   // REAL DASHBOARD METRICS FROM DYNAMODB REPORTS
   // =========================================================
 
+  // =========================================================
+  // REPORT STATUS MODEL
+  // PENDING  -> Under Review
+  // REVIEWED -> Reviewed
+  // ACTIVE   -> Active Hazard
+  // RESOLVED -> Resolved
+  // =========================================================
+
   const activeReports = backendReports.filter(
-    (report) => report.status !== "PENDING" && report.status !== "RESOLVED"
+    (report) => report.status === "ACTIVE"
   );
 
   const pendingReports = backendReports.filter(
-    (report) => report.status === "PENDING"
+    (report) => report.status === "PENDING" || report.status === "REVIEW"
+  );
+
+  const reviewedReports = backendReports.filter(
+    (report) => report.status === "REVIEWED"
   );
 
   const resolvedReports = backendReports.filter(
@@ -217,21 +229,22 @@ function App() {
   );
 
   const highActiveReports = backendReports.filter(
-    (report) => report.severity === "HIGH" && report.status !== "RESOLVED"
+    (report) => report.severity === "HIGH" && report.status === "ACTIVE"
   );
 
   const mediumActiveReports = backendReports.filter(
-    (report) => report.severity === "MEDIUM" && report.status !== "RESOLVED"
+    (report) => report.severity === "MEDIUM" && report.status === "ACTIVE"
   );
 
   const lowActiveReports = backendReports.filter(
-    (report) => report.severity === "LOW" && report.status !== "RESOLVED"
+    (report) => report.severity === "LOW" && report.status === "ACTIVE"
   );
 
-  // Current alerts are calculated entirely from the live DynamoDB report list.
-  // Resolved reports are excluded; higher severity is shown first, then newest.
+  // Current alerts contain only genuinely ACTIVE hazards.
+  // Reviewed reports are no longer treated as active alerts.
+  // Higher severity is shown first, then newest.
   const currentAlerts = [...backendReports]
-    .filter((report) => report.status !== "RESOLVED")
+    .filter((report) => report.status === "ACTIVE")
     .sort((a, b) => {
       const severityRank = { HIGH: 3, MEDIUM: 2, LOW: 1 };
       const severityDifference =
@@ -893,7 +906,10 @@ function App() {
           </div>
         </div>
 
-        <div className="stat-card stat-info">
+        <div
+          className="stat-card stat-info"
+          title={`Reviewed reports: ${reviewedReports.length}`}
+        >
           <div className="stat-icon">◎</div>
           <div>
             <span>Citizen Reports</span>
