@@ -635,6 +635,8 @@ function AuthenticationPortal() {
             <div className="authenticator-wrapper">
 
               <Authenticator
+                key={selectedRole}
+                initialState="signIn"
                 hideSignUp={false}
               />
 
