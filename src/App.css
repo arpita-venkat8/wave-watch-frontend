@@ -2332,3 +2332,11 @@ footer {
     margin: 0 5%;
   }
 }
+
+/* =========================================
+   COMPACT SPACING BETWEEN DASHBOARD SECTIONS
+   Only reduces the excessive vertical gap.
+   ========================================= */
+section.reports + section.reports {
+  padding-top: 20px;
+}
