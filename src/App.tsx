@@ -48,6 +48,10 @@ function App() {
 
   const [updatingReportId, setUpdatingReportId] =
     useState<string | null>(null);
+  const [selectedReport, setSelectedReport] =
+    useState<BackendReport | null>(null);
+  const [adminToast, setAdminToast] = useState("");
+  const knownReportIdsRef = useRef<Set<string> | null>(null);
 
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<any>(null);
@@ -194,7 +198,9 @@ function App() {
         {
           method: "PATCH",
           headers: await getAuthHeaders(),
-          body: JSON.stringify({ status: "RESOLVED" }),
+          body: JSON.stringify({
+            status: "RESOLVED",
+          }),
         }
       );
 
@@ -202,25 +208,34 @@ function App() {
 
       if (!response.ok) {
         throw new Error(
-          data.error || data.message || "Failed to resolve report."
+          data.error ||
+            data.message ||
+            "Failed to resolve report."
         );
       }
 
       setBackendReports((currentReports) =>
         currentReports.map((report) =>
           report.reportId === reportId
-            ? { ...report, status: "RESOLVED" }
+            ? {
+                ...report,
+                status: "RESOLVED",
+              }
             : report
         )
       );
 
       alert("Report marked as Resolved successfully.");
     } catch (error) {
-      console.error("Error resolving report:", error);
+      console.error(
+        "Error resolving report:",
+        error
+      );
+
       alert(
         error instanceof Error
           ? error.message
-          : "Failed to update report status."
+          : "Failed to resolve report."
       );
     } finally {
       setUpdatingReportId(null);
@@ -325,6 +340,34 @@ function App() {
       );
     })
     .slice(0, 4);
+
+  // =========================================================
+  // DANGER-ZONE VISUALIZATION DATA
+  // =========================================================
+  const dangerZones = Object.values(
+    backendReports
+      .filter((report) => normalizedStatus(report.status) !== "RESOLVED")
+      .reduce((zones, report) => {
+        const key = report.location || "Unknown location";
+        const severityValue =
+          normalizedSeverity(report.severity) === "HIGH"
+            ? 3
+            : normalizedSeverity(report.severity) === "MEDIUM"
+              ? 2
+              : 1;
+        if (!zones[key]) {
+          zones[key] = { location: key, reports: 0, riskScore: 0, high: 0, medium: 0, low: 0 };
+        }
+        zones[key].reports += 1;
+        zones[key].riskScore += severityValue;
+        if (normalizedSeverity(report.severity) === "HIGH") zones[key].high += 1;
+        else if (normalizedSeverity(report.severity) === "MEDIUM") zones[key].medium += 1;
+        else zones[key].low += 1;
+        return zones;
+      }, {} as Record<string, { location: string; reports: number; riskScore: number; high: number; medium: number; low: number }>)
+  ).sort((a, b) => b.riskScore - a.riskScore).slice(0, 6);
+
+  const maxDangerScore = Math.max(1, ...dangerZones.map((zone) => zone.riskScore));
 
   // =========================================================
   // INITIALIZE AMAZON LOCATION MAP
@@ -477,6 +520,17 @@ function App() {
           );
         });
 
+      const previousIds = knownReportIdsRef.current;
+      const currentIds = new Set(normalizedReports.map((report) => report.reportId));
+      if (userRole === "ADMIN" && previousIds) {
+        const newReports = normalizedReports.filter((report) => !previousIds.has(report.reportId));
+        if (newReports.length > 0) {
+          setAdminToast(`🚨 New hazard report received: ${newReports[0].hazardType}`);
+          window.setTimeout(() => setAdminToast(""), 5000);
+          void runCorrelation();
+        }
+      }
+      knownReportIdsRef.current = currentIds;
       setBackendReports(normalizedReports);
       setLastUpdated(new Date());
     } catch (error) {
@@ -489,12 +543,19 @@ function App() {
   // Load reports when application starts
   useEffect(() => {
     fetchReports();
-
-    // Keep the dashboard synchronized with DynamoDB.
     const refreshTimer = window.setInterval(fetchReports, 30000);
-
     return () => window.clearInterval(refreshTimer);
   }, []);
+
+  // ADMIN: automatic correlation when the admin dashboard opens.
+  useEffect(() => {
+    if (userRole !== "ADMIN") return;
+    const analyzeOnLoad = async () => {
+      await fetchReports();
+      await runCorrelation();
+    };
+    void analyzeOnLoad();
+  }, [userRole]);
 
   // =========================================================
   // RUN SOCIAL SIGNAL CORRELATION
@@ -820,6 +881,13 @@ function App() {
   };
 
   // =========================================================
+  // REPORT DETAILS POPUP
+  // =========================================================
+  const openReportDetails = (report: BackendReport) => {
+    setSelectedReport(report);
+  };
+
+  // =========================================================
   // UI
   // =========================================================
 
@@ -851,6 +919,12 @@ function App() {
           System Live
         </div>
       </nav>
+
+      {adminToast && userRole === "ADMIN" && (
+        <div style={{ position: "fixed", top: "92px", right: "24px", zIndex: 10000, maxWidth: "360px", padding: "14px 18px", borderRadius: "12px", border: "1px solid rgba(34,197,94,0.45)", background: "rgba(5,30,45,0.96)", color: "#bbf7d0", boxShadow: "0 12px 30px rgba(0,0,0,0.35)", fontWeight: 700 }}>
+          {adminToast}
+        </div>
+      )}
 
       {/* =====================================================
           HERO
@@ -1239,6 +1313,44 @@ function App() {
 
         </div>
 
+      </section>
+
+      {/* =====================================================
+          DANGER ZONE VISUAL
+      ===================================================== */}
+      <section className="reports" style={{ marginTop: "28px" }}>
+        <div className="section-heading">
+          <div>
+            <span className="section-tag">DANGER ZONE VISUAL</span>
+            <h2>Coastal Risk Density</h2>
+            <p>Visualizes unresolved hazard concentration by reported location.</p>
+          </div>
+          <div className="live-status"><span></span>RISK ANALYSIS</div>
+        </div>
+        {dangerZones.length === 0 ? (
+          <div style={{ padding: "30px", textAlign: "center", color: "#94a3b8", borderRadius: "14px", border: "1px dashed rgba(148,163,184,0.25)" }}>
+            No unresolved danger zones detected.
+          </div>
+        ) : (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: "14px" }}>
+            {dangerZones.map((zone) => {
+              const riskPercent = Math.max(8, Math.round((zone.riskScore / maxDangerScore) * 100));
+              const riskLabel = zone.high > 0 || riskPercent >= 70 ? "HIGH RISK" : riskPercent >= 40 ? "MEDIUM RISK" : "LOW RISK";
+              return (
+                <div key={zone.location} style={{ padding: "18px", borderRadius: "14px", border: "1px solid rgba(56,189,248,0.18)", background: "rgba(15,23,42,0.55)" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", alignItems: "center" }}>
+                    <strong>📍 {zone.location}</strong><span style={{ color: zone.high > 0 ? "#fca5a5" : "#fcd34d", fontSize: "11px", fontWeight: 800 }}>{riskLabel}</span>
+                  </div>
+                  <div style={{ marginTop: "12px", height: "8px", borderRadius: "999px", background: "rgba(148,163,184,0.14)", overflow: "hidden" }}>
+                    <div style={{ width: `${riskPercent}%`, height: "100%", borderRadius: "999px", background: zone.high > 0 ? "#ef4444" : zone.medium > 0 ? "#f59e0b" : "#22c55e" }} />
+                  </div>
+                  <div style={{ marginTop: "10px", display: "flex", justifyContent: "space-between", color: "#94a3b8", fontSize: "12px" }}><span>{zone.reports} unresolved report{zone.reports === 1 ? "" : "s"}</span><span>Risk score: {zone.riskScore}</span></div>
+                  <div style={{ marginTop: "8px", color: "#64748b", fontSize: "11px" }}>High: {zone.high} • Medium: {zone.medium} • Low: {zone.low}</div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </section>
 
       {/* =====================================================
@@ -1666,26 +1778,20 @@ function App() {
 
             backendReports.map((report) => {
 
-                const normalizedReportSeverity =
-                  normalizedSeverity(report.severity);
-
                 const severity =
-                  normalizedReportSeverity === "HIGH"
+                  report.severity === "HIGH"
                     ? "High"
-                    : normalizedReportSeverity === "LOW"
+                    : report.severity === "LOW"
                       ? "Low"
                       : "Medium";
 
-                const normalizedReportStatus =
-                  normalizedStatus(report.status);
-
                 const status =
-                  normalizedReportStatus === "PENDING" ||
-                  normalizedReportStatus === "REVIEW"
+                  report.status === "PENDING" ||
+                  report.status === "REVIEW"
                     ? "Under Review"
-                    : normalizedReportStatus === "REVIEWED"
+                    : report.status === "REVIEWED"
                       ? "Reviewed"
-                      : normalizedReportStatus === "RESOLVED"
+                      : report.status === "RESOLVED"
                         ? "Resolved"
                         : "Active";
 
@@ -1701,6 +1807,16 @@ function App() {
                   <div
                     className="report-row"
                     key={report.reportId}
+                    onClick={() => openReportDetails(report)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        openReportDetails(report);
+                      }
+                    }}
+                    style={{ cursor: "pointer" }}
                   >
 
                     <div className="hazard-name">
@@ -1744,13 +1860,14 @@ function App() {
                       </span>
 
                       {userRole === "ADMIN" &&
-                        (normalizedReportStatus === "PENDING" ||
-                          normalizedReportStatus === "REVIEW") && (
+                        (report.status === "PENDING" ||
+                          report.status === "REVIEW") && (
                           <button
                             type="button"
-                            onClick={() =>
-                              markReportAsReviewed(report.reportId)
-                            }
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              markReportAsReviewed(report.reportId);
+                            }}
                             disabled={
                               updatingReportId === report.reportId
                             }
@@ -1780,19 +1897,21 @@ function App() {
                         )}
 
                       {userRole === "ADMIN" &&
-                        normalizedReportStatus === "REVIEWED" && (
+                        (report.status === "REVIEWED" ||
+                          report.status === "ACTIVE") && (
                           <button
                             type="button"
-                            onClick={() =>
-                              markReportAsResolved(report.reportId)
-                            }
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              markReportAsResolved(report.reportId);
+                            }}
                             disabled={
                               updatingReportId === report.reportId
                             }
                             style={{
-                              border: "1px solid rgba(34, 197, 94, 0.55)",
-                              background: "rgba(34, 197, 94, 0.14)",
-                              color: "#86efac",
+                              border: "1px solid rgba(96, 165, 250, 0.45)",
+                              background: "rgba(96, 165, 250, 0.12)",
+                              color: "#93c5fd",
                               borderRadius: "8px",
                               padding: "6px 10px",
                               fontSize: "11px",
@@ -1908,6 +2027,33 @@ function App() {
         </span>
 
       </footer>
+
+      {/* =====================================================
+          REPORT DETAILS POPUP
+      ===================================================== */}
+      {selectedReport && (
+        <div className="modal-overlay" onClick={() => setSelectedReport(null)}>
+          <div className="modal" onClick={(event) => event.stopPropagation()}>
+            <button className="close-button" onClick={() => setSelectedReport(null)}>×</button>
+            <div className="modal-icon">⚠️</div>
+            <h2>{selectedReport.hazardType}</h2>
+            <p style={{ marginBottom: "18px" }}>Complete hazard report details</p>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: "12px", marginBottom: "18px" }}>
+              <div><small style={{ color: "#64748b" }}>STATUS</small><div style={{ marginTop: "4px", fontWeight: 700 }}>{normalizedStatus(selectedReport.status) === "RESOLVED" ? "Resolved" : normalizedStatus(selectedReport.status) === "REVIEWED" ? "Reviewed" : normalizedStatus(selectedReport.status) === "ACTIVE" ? "Active" : "Under Review"}</div></div>
+              <div><small style={{ color: "#64748b" }}>SEVERITY</small><div style={{ marginTop: "4px", fontWeight: 700 }}>{selectedReport.severity}</div></div>
+              <div><small style={{ color: "#64748b" }}>REPORTED</small><div style={{ marginTop: "4px", fontWeight: 700 }}>{new Date(selectedReport.timestamp).toLocaleString()}</div></div>
+            </div>
+            <div style={{ padding: "14px", borderRadius: "12px", background: "rgba(15,23,42,0.55)", border: "1px solid rgba(56,189,248,0.15)" }}>
+              <strong>📍 Location</strong>
+              <div style={{ marginTop: "5px", color: "#cbd5e1" }}>{selectedReport.location || "Reported location"}</div>
+              <strong style={{ display: "block", marginTop: "14px" }}>📝 Description</strong>
+              <div style={{ marginTop: "5px", color: "#cbd5e1", lineHeight: 1.5 }}>{selectedReport.description || "No description provided."}</div>
+              <div style={{ marginTop: "14px", color: "#64748b", fontSize: "12px" }}>Coordinates: {Number(selectedReport.latitude).toFixed(5)}, {Number(selectedReport.longitude).toFixed(5)}</div>
+            </div>
+            <div style={{ marginTop: "14px", color: "#64748b", fontSize: "11px" }}>Report ID: {selectedReport.reportId}</div>
+          </div>
+        </div>
+      )}
 
       {/* =====================================================
           REPORT MODAL
