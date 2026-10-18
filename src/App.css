@@ -2643,3 +2643,99 @@ html:has(.modal-overlay), body:has(.modal-overlay) { overflow: hidden !important
 .report-details-modal > div[style*="background: rgba(15,23,42"] {
   padding: 14px 16px !important;
 }
+
+/* =========================================================
+   REPORT A COASTAL HAZARD MODAL - ALIGNMENT FIX ONLY
+   Targets only the report form modal (not .report-details-modal).
+   ========================================================= */
+
+/* 1. Header: icon inline with title, close button anchored to padding */
+.modal-overlay .modal:not(.report-details-modal) {
+  position: relative !important;
+}
+
+.modal-overlay .modal:not(.report-details-modal) .modal-icon,
+.modal-overlay .modal:not(.report-details-modal) h2 {
+  display: inline-block !important;
+  vertical-align: middle !important;
+}
+
+.modal-overlay .modal:not(.report-details-modal) .modal-icon {
+  margin: 0 10px 0 0 !important;
+}
+
+.modal-overlay .modal:not(.report-details-modal) h2 {
+  margin: 0 !important;
+}
+
+.modal-overlay .modal:not(.report-details-modal) > p {
+  margin: 6px 0 4px !important;
+}
+
+.modal-overlay .modal:not(.report-details-modal) .close-button {
+  position: absolute !important;
+  top: 18px !important;
+  right: 22px !important;
+  padding: 0 !important;
+  line-height: 1 !important;
+}
+
+/* 2. Even vertical rhythm for every label + field */
+.modal-overlay .modal:not(.report-details-modal) label {
+  margin-top: 12px !important;
+  margin-bottom: 6px !important;
+}
+
+/* 3. Same height and left/right edges for every single-line field */
+.modal-overlay .modal:not(.report-details-modal) input:not([type="file"]),
+.modal-overlay .modal:not(.report-details-modal) select {
+  height: 40px !important;
+  min-height: 40px !important;
+  width: 100% !important;
+  display: block !important;
+}
+
+/* 4. Replace the glossy native select with a flat one that matches the inputs */
+.modal-overlay .modal:not(.report-details-modal) select {
+  -webkit-appearance: none !important;
+  appearance: none !important;
+  padding-right: 36px !important;
+  background-color: #071522 !important;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'><path d='M1 1.5l5 5 5-5' fill='none' stroke='%238ca4b6' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/></svg>") !important;
+  background-repeat: no-repeat !important;
+  background-position: right 12px center !important;
+  background-size: 12px 8px !important;
+  cursor: pointer;
+}
+
+/* 5. File input: same height, text vertically centred, tidy button */
+.modal-overlay .modal:not(.report-details-modal) input[type="file"] {
+  height: 44px !important;
+  min-height: 44px !important;
+  width: 100% !important;
+  display: flex !important;
+  align-items: center !important;
+  padding: 0 10px !important;
+  color: #8ca4b6 !important;
+  font-size: 12px !important;
+}
+
+.modal-overlay .modal:not(.report-details-modal) input[type="file"]::file-selector-button {
+  height: 28px;
+  margin-right: 12px;
+  padding: 0 12px;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: 6px;
+  background: #0f2a41;
+  color: #e6f0f5;
+  font-family: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+/* 6. Submit button: same left/right edges as the fields, consistent gap above */
+.modal-overlay .modal:not(.report-details-modal) .submit {
+  display: block !important;
+  width: 100% !important;
+  margin-top: 16px !important;
+}
