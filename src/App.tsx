@@ -259,6 +259,9 @@ function App() {
   // =========================================================
 
   const [backendReports, setBackendReports] = useState<BackendReport[]>([]);
+  const [reportCategoryFilter, setReportCategoryFilter] = useState("ALL");
+  const [reportSeverityFilter, setReportSeverityFilter] = useState("ALL");
+  const [reportStatusFilter, setReportStatusFilter] = useState("ALL");
   const [mapReady, setMapReady] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -282,6 +285,42 @@ function App() {
       ? value
       : "MEDIUM";
   };
+
+  // =========================================================
+  // REPORT LIST FILTER DATA
+  // =========================================================
+  const reportCategories = Array.from(
+    new Set(
+      backendReports
+        .map((report) => String(report.hazardType || "").trim())
+        .filter(Boolean)
+    )
+  ).sort((a, b) => a.localeCompare(b));
+
+  const filteredReports = backendReports.filter((report) => {
+    const categoryMatch =
+      reportCategoryFilter === "ALL" ||
+      String(report.hazardType || "").trim() === reportCategoryFilter;
+
+    const severityMatch =
+      reportSeverityFilter === "ALL" ||
+      normalizedSeverity(report.severity) === reportSeverityFilter;
+
+    const normalizedReportStatus = normalizedStatus(report.status);
+    const statusMatch =
+      reportStatusFilter === "ALL" ||
+      (reportStatusFilter === "UNDER_REVIEW"
+        ? normalizedReportStatus === "PENDING" ||
+          normalizedReportStatus === "REVIEW"
+        : normalizedReportStatus === reportStatusFilter);
+
+    return categoryMatch && severityMatch && statusMatch;
+  });
+
+  const hasActiveReportFilters =
+    reportCategoryFilter !== "ALL" ||
+    reportSeverityFilter !== "ALL" ||
+    reportStatusFilter !== "ALL";
 
   // Status cards
   const activeReports = backendReports.filter(
@@ -1750,6 +1789,57 @@ function App() {
 
         </div>
 
+        <div
+          className="report-filters"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "12px",
+            flexWrap: "wrap",
+            marginBottom: "16px",
+            padding: "14px 16px",
+            borderRadius: "12px",
+            border: "1px solid rgba(56,189,248,0.14)",
+            background: "rgba(15,23,42,0.45)",
+          }}
+        >
+          <span style={{ color: "#94a3b8", fontSize: "12px", fontWeight: 800, letterSpacing: "0.08em" }}>
+            FILTER REPORTS
+          </span>
+
+          <select value={reportCategoryFilter} onChange={(event) => setReportCategoryFilter(event.target.value)} aria-label="Filter by category" style={{ minWidth: "190px", padding: "9px 12px", borderRadius: "9px", border: "1px solid rgba(56,189,248,0.25)", background: "#0b1d2d", color: "#dbeafe", fontSize: "13px", outline: "none" }}>
+            <option value="ALL">All Categories</option>
+            {reportCategories.map((category) => (
+              <option key={category} value={category}>{category}</option>
+            ))}
+          </select>
+
+          <select value={reportSeverityFilter} onChange={(event) => setReportSeverityFilter(event.target.value)} aria-label="Filter by severity" style={{ minWidth: "155px", padding: "9px 12px", borderRadius: "9px", border: "1px solid rgba(56,189,248,0.25)", background: "#0b1d2d", color: "#dbeafe", fontSize: "13px", outline: "none" }}>
+            <option value="ALL">All Severity</option>
+            <option value="HIGH">High</option>
+            <option value="MEDIUM">Medium</option>
+            <option value="LOW">Low</option>
+          </select>
+
+          <select value={reportStatusFilter} onChange={(event) => setReportStatusFilter(event.target.value)} aria-label="Filter by status" style={{ minWidth: "165px", padding: "9px 12px", borderRadius: "9px", border: "1px solid rgba(56,189,248,0.25)", background: "#0b1d2d", color: "#dbeafe", fontSize: "13px", outline: "none" }}>
+            <option value="ALL">All Status</option>
+            <option value="UNDER_REVIEW">Under Review</option>
+            <option value="REVIEWED">Reviewed</option>
+            <option value="ACTIVE">Active</option>
+            <option value="RESOLVED">Resolved</option>
+          </select>
+
+          {hasActiveReportFilters && (
+            <button type="button" onClick={() => { setReportCategoryFilter("ALL"); setReportSeverityFilter("ALL"); setReportStatusFilter("ALL"); }} style={{ padding: "9px 12px", borderRadius: "9px", border: "1px solid rgba(148,163,184,0.25)", background: "rgba(148,163,184,0.08)", color: "#cbd5e1", fontSize: "12px", fontWeight: 700, cursor: "pointer" }}>
+              Clear Filters
+            </button>
+          )}
+
+          <span style={{ marginLeft: "auto", color: "#64748b", fontSize: "12px" }}>
+            Showing {filteredReports.length} of {backendReports.length}
+          </span>
+        </div>
+
         <div className="reports-table">
 
           <div className="table-header">
@@ -1760,7 +1850,7 @@ function App() {
             <span>REPORTED</span>
           </div>
 
-          {backendReports.length === 0 ? (
+          {filteredReports.length === 0 ? (
 
             <div
               className="report-row"
@@ -1771,12 +1861,14 @@ function App() {
                 color: "#94a3b8",
               }}
             >
-              No hazard reports available yet.
+              {hasActiveReportFilters
+                ? "No reports match the selected filters."
+                : "No hazard reports available yet."}
             </div>
 
           ) : (
 
-            backendReports.map((report) => {
+            filteredReports.map((report) => {
 
                 const severity =
                   report.severity === "HIGH"
