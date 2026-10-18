@@ -5,7 +5,10 @@ import {
   Authenticator,
   useAuthenticator,
 } from "@aws-amplify/ui-react";
-import { fetchAuthSession, signOut as amplifySignOut } from "aws-amplify/auth";
+import {
+  fetchAuthSession,
+  signOut as amplifySignOut,
+} from "aws-amplify/auth";
 
 import "@aws-amplify/ui-react/styles.css";
 
@@ -29,24 +32,12 @@ function AuthenticationPortal() {
   const [checkingRole, setCheckingRole] = useState(false);
   const [roleError, setRoleError] = useState("");
 
-  /*
-   * Prevents the role verification effect from repeatedly
-   * executing while Cognito is changing authentication state.
-   */
   const verificationStarted = useRef(false);
 
   /*
    * =========================================================
    * ROLE VERIFICATION
    * =========================================================
-   *
-   * Cognito groups:
-   *
-   * CITIZEN -> CITIZEN
-   * ADMIN   -> ADMIN
-   *
-   * The selected portal is checked against the actual
-   * Cognito group contained in the authenticated user's ID token.
    */
   useEffect(() => {
     if (authStatus !== "authenticated") {
@@ -104,8 +95,7 @@ function AuthenticationPortal() {
         }
 
         /*
-         * If the user selected Citizen/Admin before login,
-         * verify that the Cognito role matches it.
+         * Check selected portal against actual Cognito role.
          */
         if (selectedRole && selectedRole !== actualRole) {
           setRoleError(
@@ -128,12 +118,15 @@ function AuthenticationPortal() {
         }
 
         /*
-         * Existing authenticated session or successful login.
+         * Authentication + role verification successful.
          */
         setSelectedRole(actualRole);
         setVerifiedRole(actualRole);
       } catch (error) {
-        console.error("Wave Watch role verification failed:", error);
+        console.error(
+          "Wave Watch role verification failed:",
+          error
+        );
 
         setRoleError(
           "Unable to verify your Wave Watch account. Please sign in again."
@@ -156,17 +149,11 @@ function AuthenticationPortal() {
     };
 
     void verifyAuthenticatedUser();
-
-    /*
-     * IMPORTANT:
-     * Do NOT put checkingRole or verifiedRole in this dependency
-     * array. Doing that can create a verification loop.
-     */
   }, [authStatus]);
 
   /*
    * =========================================================
-   * LOG OUT
+   * SIGN OUT
    * =========================================================
    */
   const handleSignOut = async () => {
@@ -180,11 +167,11 @@ function AuthenticationPortal() {
 
       await amplifySignOut({ global: true });
     } catch (error) {
-      console.error("Wave Watch sign out failed:", error);
+      console.error(
+        "Wave Watch sign out failed:",
+        error
+      );
 
-      /*
-       * Even if global sign-out fails, try local sign-out.
-       */
       try {
         await amplifySignOut();
       } catch (localError) {
@@ -201,16 +188,11 @@ function AuthenticationPortal() {
    * AUTHENTICATED USER
    * =========================================================
    */
-
   if (authStatus === "authenticated") {
     /*
-     * Never render the dashboard until the role has actually
-     * been verified.
+     * Wait until Cognito role is verified.
      */
-    if (
-      checkingRole ||
-      !verifiedRole
-    ) {
+    if (checkingRole || !verifiedRole) {
       return (
         <div className="wave-auth-page">
           <div className="wave-auth-background">
@@ -270,71 +252,84 @@ function AuthenticationPortal() {
      * =======================================================
      * VERIFIED DASHBOARD
      * =======================================================
-     *
-     * App.tsx stays OUTSIDE Authenticator.
      */
     return (
       <>
         <App />
 
-       <button
-  type="button"
-  onClick={handleSignOut}
-  aria-label="Sign out"
-  style={{
-    position: "fixed",
-    top: "28px",
-    right: "110px",
-    zIndex: 999999,
+        {/* SIGN OUT BUTTON */}
+        <button
+          type="button"
+          onClick={handleSignOut}
+          aria-label="Sign out"
+          style={{
+            position: "fixed",
 
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: "8px",
+            /*
+             * Positioned to the LEFT of the existing
+             * System Live indicator.
+             */
+            top: "30px",
+            right: "260px",
 
-    height: "42px",
-    minWidth: "112px",
+            zIndex: 999999,
 
-    padding: "0 16px",
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: "8px",
 
-    border: "1px solid rgba(0, 180, 255, 0.45)",
-    borderRadius: "10px",
+            height: "42px",
+            minWidth: "112px",
 
-    background: "rgba(7, 26, 43, 0.96)",
-    color: "#dbeafe",
+            padding: "0 16px",
 
-    cursor: "pointer",
+            border:
+              "1px solid rgba(0, 180, 255, 0.45)",
 
-    fontFamily: "inherit",
-    fontSize: "13px",
-    fontWeight: 700,
+            borderRadius: "10px",
 
-    boxShadow: "0 8px 24px rgba(0, 0, 0, 0.30)",
+            background:
+              "rgba(7, 26, 43, 0.96)",
 
-    backdropFilter: "blur(10px)",
-  }}
->
-  <span
-    style={{
-      fontSize: "16px",
-      lineHeight: 1,
-    }}
-  >
-    ↪
-  </span>
+            color: "#dbeafe",
 
-  <span>Sign Out</span>
-</button>
+            cursor: "pointer",
+
+            fontFamily: "inherit",
+            fontSize: "13px",
+            fontWeight: 700,
+
+            boxShadow:
+              "0 8px 24px rgba(0, 0, 0, 0.30)",
+
+            backdropFilter: "blur(10px)",
+
+            whiteSpace: "nowrap",
+          }}
+        >
+          <span
+            style={{
+              fontSize: "16px",
+              lineHeight: 1,
+            }}
+          >
+            ↪
+          </span>
+
+          <span>
+            Sign Out
+          </span>
+        </button>
       </>
     );
   }
 
   /*
    * =========================================================
-   * ROLE SELECTION SCREEN
+   * ROLE SELECTION
    * =========================================================
    */
-
   if (!selectedRole) {
     return (
       <div className="wave-auth-page">
@@ -542,10 +537,9 @@ function AuthenticationPortal() {
 
   /*
    * =========================================================
-   * LOGIN / SIGNUP SCREEN
+   * LOGIN / SIGN UP
    * =========================================================
    */
-
   return (
     <div className="wave-auth-page">
 
@@ -737,7 +731,7 @@ function AuthenticationPortal() {
 
 /*
  * =========================================================
- * ROOT RENDER
+ * ROOT
  * =========================================================
  */
 
