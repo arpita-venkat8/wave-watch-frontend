@@ -262,65 +262,29 @@ function AuthenticationPortal() {
           type="button"
           onClick={handleSignOut}
           aria-label="Sign out"
+          className="wave-system-status"
           style={{
             position: "fixed",
 
             /*
-             * Vertically centered on the same line as the
-             * System Live indicator.
+             * Same line as the System Live pill, sitting
+             * right next to it. Uses the same pill class
+             * so the look matches exactly.
              */
-            top: "36px",
+            top: "35px",
             transform: "translateY(-50%)",
-            right: "260px",
+            right: "205px",
+            margin: 0,
 
             zIndex: 999999,
 
-            display: "inline-flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: "8px",
-
-            height: "42px",
-            minWidth: "112px",
-
-            padding: "0 16px",
-
-            border:
-              "1px solid rgba(0, 180, 255, 0.45)",
-
-            borderRadius: "10px",
-
-            background:
-              "rgba(7, 26, 43, 0.96)",
-
-            color: "#dbeafe",
-
             cursor: "pointer",
-
             fontFamily: "inherit",
-            fontSize: "13px",
-            fontWeight: 700,
-
-            boxShadow:
-              "0 8px 24px rgba(0, 0, 0, 0.30)",
-
-            backdropFilter: "blur(10px)",
-
             whiteSpace: "nowrap",
           }}
         >
-          <span
-            style={{
-              fontSize: "16px",
-              lineHeight: 1,
-            }}
-          >
-            ↪
-          </span>
-
-          <span>
-            Sign Out
-          </span>
+          <span className="system-dot" />
+          <span>Sign Out</span>
         </button>
       </>
     );
