@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { fetchAuthSession } from "aws-amplify/auth";
 import "./App.css";
 
 type BackendReport = {
@@ -38,6 +39,20 @@ type PossibleIncident = {
 };
 
 function App() {
+  const getAuthHeaders = async () => {
+    const session = await fetchAuthSession();
+    const token = session.tokens?.idToken?.toString();
+
+    if (!token) {
+      throw new Error("Authentication session expired. Please sign in again.");
+    }
+
+    return {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    };
+  };
+
   const [showModal, setShowModal] = useState(false);
   const [isMapExpanded, setIsMapExpanded] = useState(false);
 
@@ -240,7 +255,10 @@ function App() {
 
       const response = await fetch(
         "https://cw6ehoudu9.execute-api.ap-southeast-2.amazonaws.com/reports",
-        { cache: "no-store" }
+        {
+          cache: "no-store",
+          headers: await getAuthHeaders(),
+        }
       );
 
       const data = await response.json();
@@ -299,7 +317,7 @@ function App() {
         "https://cw6ehoudu9.execute-api.ap-southeast-2.amazonaws.com/correlation",
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: await getAuthHeaders(),
           body: JSON.stringify({}),
         }
       );
@@ -423,9 +441,7 @@ function App() {
       "https://cw6ehoudu9.execute-api.ap-southeast-2.amazonaws.com/reports",
       {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: await getAuthHeaders(),
         body: JSON.stringify({
           action: "upload-url",
           fileName: file.name,
@@ -541,9 +557,7 @@ function App() {
         {
           method: "POST",
 
-          headers: {
-            "Content-Type": "application/json",
-          },
+          headers: await getAuthHeaders(),
 
           body: JSON.stringify({
             hazardType: finalHazardType,
