@@ -2125,7 +2125,7 @@ function App() {
       ===================================================== */}
       {selectedReport && (
         <div className="modal-overlay" onClick={() => setSelectedReport(null)}>
-          <div className="modal" onClick={(event) => event.stopPropagation()}>
+          <div className="modal report-details-modal" onClick={(event) => event.stopPropagation()}>
             <button className="close-button" onClick={() => setSelectedReport(null)}>×</button>
             <div className="modal-icon">⚠️</div>
             <h2>{selectedReport.hazardType}</h2>
