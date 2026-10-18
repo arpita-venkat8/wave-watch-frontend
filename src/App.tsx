@@ -474,8 +474,11 @@ function App() {
     markersRef.current.forEach((marker) => marker.remove());
     markersRef.current = [];
 
-    // Add backend reports
-    backendReports.forEach((report) => {
+    // Add only unresolved backend reports.
+    // Once an admin marks a report RESOLVED, its map marker disappears.
+    backendReports
+      .filter((report) => String(report.status || "PENDING").trim().toUpperCase() !== "RESOLVED")
+      .forEach((report) => {
       const color =
         report.severity === "HIGH"
           ? "#ef4444"
@@ -502,7 +505,7 @@ function App() {
         .addTo(mapRef.current);
 
       markersRef.current.push(marker);
-    });
+      });
   }, [backendReports, mapReady]);
 
   // =========================================================
