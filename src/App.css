@@ -2520,3 +2520,75 @@ html:has(.modal-overlay), body:has(.modal-overlay) { overflow: hidden !important
 .report-details-modal > div[style*="background: rgba(15,23,42"] img { width:100% !important; height:220px !important; max-height:220px !important; object-fit:contain !important; display:block !important; margin:0 auto !important; border-radius:9px !important; background:#071522 !important; }
 .report-details-modal .close-button { top:12px !important; right:16px !important; font-size:25px !important; }
 @media (max-height:820px) { .report-details-modal { height:calc(100vh - 24px) !important; max-height:calc(100vh - 24px) !important; padding:18px 24px 15px !important; } .report-details-modal h2 { font-size:26px !important; } .report-details-modal > p { margin-bottom:10px !important; } .report-details-modal > div[style*="grid-template-columns"] { margin-bottom:10px !important; } .report-details-modal > div[style*="background: rgba(15,23,42"] { padding:12px 15px !important; } .report-details-modal > div[style*="background: rgba(15,23,42"] img { height:175px !important; max-height:175px !important; } }
+
+/* =========================================================
+   FINAL SPACING FIX â€” ADMIN REPORT DETAILS ONLY
+   Compact content-height card with breathing room above/below.
+   ========================================================= */
+
+.modal-overlay {
+  padding: 28px 20px !important;
+  box-sizing: border-box !important;
+  align-items: center !important;
+  justify-content: center !important;
+  overflow: hidden !important;
+}
+
+.report-details-modal {
+  width: min(820px, calc(100vw - 48px)) !important;
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: calc(100vh - 56px) !important;
+  overflow-y: auto !important;
+  margin: 0 auto !important;
+  padding: 22px 26px 22px !important;
+  box-sizing: border-box !important;
+  border-radius: 14px !important;
+}
+
+.report-details-modal h2 {
+  font-size: 28px !important;
+  margin: 0 0 3px !important;
+}
+
+.report-details-modal > p {
+  margin: 0 0 13px !important;
+}
+
+.report-details-modal > div[style*="grid-template-columns"] {
+  margin-bottom: 13px !important;
+  gap: 16px !important;
+}
+
+.report-details-modal > div[style*="background: rgba(15,23,42"] {
+  padding: 15px 17px !important;
+}
+
+.report-details-modal > div[style*="background: rgba(15,23,42"] img {
+  height: 190px !important;
+  max-height: 190px !important;
+}
+
+.report-details-modal > div:last-child {
+  margin-top: 9px !important;
+}
+
+@media (max-height: 820px) {
+  .modal-overlay {
+    padding: 20px 16px !important;
+  }
+
+  .report-details-modal {
+    max-height: calc(100vh - 40px) !important;
+    padding: 18px 22px 18px !important;
+  }
+
+  .report-details-modal h2 {
+    font-size: 25px !important;
+  }
+
+  .report-details-modal > div[style*="background: rgba(15,23,42"] img {
+    height: 165px !important;
+    max-height: 165px !important;
+  }
+}
