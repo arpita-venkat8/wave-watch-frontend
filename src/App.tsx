@@ -42,6 +42,13 @@ function App() {
   const [showModal, setShowModal] = useState(false);
   const [isMapExpanded, setIsMapExpanded] = useState(false);
 
+  const [userRole, setUserRole] = useState<
+    "ADMIN" | "CITIZEN" | null
+  >(null);
+
+  const [updatingReportId, setUpdatingReportId] =
+    useState<string | null>(null);
+
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<any>(null);
   const markersRef = useRef<any[]>([]);
@@ -71,6 +78,100 @@ function App() {
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
     };
+  };
+
+  // =========================================================
+  // GET CURRENT USER ROLE
+  // =========================================================
+
+  useEffect(() => {
+    const loadUserRole = async () => {
+      try {
+        const session = await fetchAuthSession();
+
+        const groups =
+          (session.tokens?.idToken?.payload[
+            "cognito:groups"
+          ] as string[] | undefined) ?? [];
+
+        if (groups.includes("ADMIN")) {
+          setUserRole("ADMIN");
+        } else if (groups.includes("CITIZEN")) {
+          setUserRole("CITIZEN");
+        } else {
+          setUserRole(null);
+        }
+      } catch (error) {
+        console.error("Unable to determine user role:", error);
+        setUserRole(null);
+      }
+    };
+
+    loadUserRole();
+  }, []);
+
+  // =========================================================
+  // ADMIN: MARK REPORT AS REVIEWED
+  // =========================================================
+
+  const markReportAsReviewed = async (reportId: string) => {
+    if (userRole !== "ADMIN") {
+      alert("Only administrators can review reports.");
+      return;
+    }
+
+    try {
+      setUpdatingReportId(reportId);
+
+      const response = await fetch(
+        `https://cw6ehoudu9.execute-api.ap-southeast-2.amazonaws.com/reports/${encodeURIComponent(
+          reportId
+        )}/status`,
+        {
+          method: "PATCH",
+          headers: await getAuthHeaders(),
+          body: JSON.stringify({
+            status: "REVIEWED",
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.error ||
+            data.message ||
+            "Failed to update report status."
+        );
+      }
+
+      setBackendReports((currentReports) =>
+        currentReports.map((report) =>
+          report.reportId === reportId
+            ? {
+                ...report,
+                status: "REVIEWED",
+              }
+            : report
+        )
+      );
+
+      alert("Report marked as Reviewed successfully.");
+    } catch (error) {
+      console.error(
+        "Error updating report status:",
+        error
+      );
+
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Failed to update report status."
+      );
+    } finally {
+      setUpdatingReportId(null);
+    }
   };
 
   // =========================================================
@@ -611,7 +712,6 @@ function App() {
       // Clear form
       setHazardType("High Waves");
       setCustomHazardType("");
-      setSeverity("MEDIUM");
       setSeverity("MEDIUM");
       setLocation("");
       setDescription("");
@@ -1482,11 +1582,14 @@ function App() {
                       : "Medium";
 
                 const status =
-                  report.status === "PENDING"
+                  report.status === "PENDING" ||
+                  report.status === "REVIEW"
                     ? "Under Review"
-                    : report.status === "RESOLVED"
-                      ? "Resolved"
-                      : "Active";
+                    : report.status === "REVIEWED"
+                      ? "Reviewed"
+                      : report.status === "RESOLVED"
+                        ? "Resolved"
+                        : "Active";
 
                 const reportedTime =
                   report.timestamp
@@ -1526,13 +1629,58 @@ function App() {
                       {severity}
                     </span>
 
-                    <span
-                      className={`report-status ${status
-                        .toLowerCase()
-                        .replace(" ", "-")}`}
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "8px",
+                        flexWrap: "wrap",
+                      }}
                     >
-                      {status}
-                    </span>
+                      <span
+                        className={`report-status ${status
+                          .toLowerCase()
+                          .replace(" ", "-")}`}
+                      >
+                        {status}
+                      </span>
+
+                      {userRole === "ADMIN" &&
+                        (report.status === "PENDING" ||
+                          report.status === "REVIEW") && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              markReportAsReviewed(report.reportId)
+                            }
+                            disabled={
+                              updatingReportId === report.reportId
+                            }
+                            style={{
+                              border: "1px solid rgba(34, 197, 94, 0.45)",
+                              background: "rgba(34, 197, 94, 0.12)",
+                              color: "#86efac",
+                              borderRadius: "8px",
+                              padding: "6px 10px",
+                              fontSize: "11px",
+                              fontWeight: 700,
+                              cursor:
+                                updatingReportId === report.reportId
+                                  ? "not-allowed"
+                                  : "pointer",
+                              opacity:
+                                updatingReportId === report.reportId
+                                  ? 0.6
+                                  : 1,
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {updatingReportId === report.reportId
+                              ? "Updating..."
+                              : "✓ Mark as Reviewed"}
+                          </button>
+                        )}
+                    </div>
 
                     <span className="time">
                       {reportedTime}
