@@ -12,8 +12,6 @@ type BackendReport = {
   timestamp: string;
   severity: "HIGH" | "MEDIUM" | "LOW";
   status: string;
-  photoKey?: string;
-  photoUrl?: string;
 };
 
 type DashboardSummary = {
@@ -185,6 +183,60 @@ function App() {
         error instanceof Error
           ? error.message
           : "Failed to update report status."
+      );
+    } finally {
+      setUpdatingReportId(null);
+    }
+  };
+
+  // =========================================================
+  // ADMIN: MARK REPORT AS ACTIVE
+  // REVIEW -> ACTIVE
+  // =========================================================
+
+  const markReportAsActive = async (reportId: string) => {
+    if (userRole !== "ADMIN") {
+      alert("Only administrators can activate reports.");
+      return;
+    }
+
+    try {
+      setUpdatingReportId(reportId);
+
+      const response = await fetch(
+        `https://cw6ehoudu9.execute-api.ap-southeast-2.amazonaws.com/reports/${encodeURIComponent(
+          reportId
+        )}/status`,
+        {
+          method: "PATCH",
+          headers: await getAuthHeaders(),
+          body: JSON.stringify({ status: "ACTIVE" }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.error || data.message || "Failed to activate report."
+        );
+      }
+
+      setBackendReports((reports) =>
+        reports.map((report) =>
+          report.reportId === reportId
+            ? { ...report, status: "ACTIVE" }
+            : report
+        )
+      );
+
+      alert("Report marked as Active successfully.");
+    } catch (error) {
+      console.error("Error activating report:", error);
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Failed to activate report."
       );
     } finally {
       setUpdatingReportId(null);
@@ -1958,7 +2010,7 @@ function App() {
                             type="button"
                             onClick={(event) => {
                               event.stopPropagation();
-                              markReportAsReviewed(report.reportId);
+                              markReportAsActive(report.reportId);
                             }}
                             disabled={
                               updatingReportId === report.reportId
@@ -1984,18 +2036,17 @@ function App() {
                           >
                             {updatingReportId === report.reportId
                               ? "Updating..."
-                              : "✓ Mark as Reviewed"}
+                              : "✓ Mark as Active"}
                           </button>
                         )}
 
                       {userRole === "ADMIN" &&
-                        (report.status === "REVIEWED" ||
-                          report.status === "ACTIVE") && (
+                        report.status === "ACTIVE" && (
                           <button
                             type="button"
                             onClick={(event) => {
                               event.stopPropagation();
-                              markReportAsResolved(report.reportId);
+                              markReportAsReviewed(report.reportId);
                             }}
                             disabled={
                               updatingReportId === report.reportId
@@ -2016,6 +2067,34 @@ function App() {
                                 updatingReportId === report.reportId
                                   ? 0.6
                                   : 1,
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {updatingReportId === report.reportId
+                              ? "Updating..."
+                              : "✓ Mark as Reviewed"}
+                          </button>
+                        )}
+
+                      {userRole === "ADMIN" &&
+                        report.status === "REVIEWED" && (
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              markReportAsResolved(report.reportId);
+                            }}
+                            disabled={updatingReportId === report.reportId}
+                            style={{
+                              border: "1px solid rgba(96, 165, 250, 0.45)",
+                              background: "rgba(96, 165, 250, 0.12)",
+                              color: "#93c5fd",
+                              borderRadius: "8px",
+                              padding: "6px 10px",
+                              fontSize: "11px",
+                              fontWeight: 700,
+                              cursor: updatingReportId === report.reportId ? "not-allowed" : "pointer",
+                              opacity: updatingReportId === report.reportId ? 0.6 : 1,
                               whiteSpace: "nowrap",
                             }}
                           >
@@ -2125,7 +2204,7 @@ function App() {
       ===================================================== */}
       {selectedReport && (
         <div className="modal-overlay" onClick={() => setSelectedReport(null)}>
-          <div className="modal report-details-modal" onClick={(event) => event.stopPropagation()}>
+          <div className="modal" onClick={(event) => event.stopPropagation()}>
             <button className="close-button" onClick={() => setSelectedReport(null)}>×</button>
             <div className="modal-icon">⚠️</div>
             <h2>{selectedReport.hazardType}</h2>
@@ -2140,26 +2219,6 @@ function App() {
               <div style={{ marginTop: "5px", color: "#cbd5e1" }}>{selectedReport.location || "Reported location"}</div>
               <strong style={{ display: "block", marginTop: "14px" }}>📝 Description</strong>
               <div style={{ marginTop: "5px", color: "#cbd5e1", lineHeight: 1.5 }}>{selectedReport.description || "No description provided."}</div>
-
-              {selectedReport.photoUrl && (
-                <div style={{ marginTop: "16px" }}>
-                  <strong style={{ display: "block", marginBottom: "8px" }}>📷 Photo Evidence</strong>
-                  <img
-                    src={selectedReport.photoUrl}
-                    alt="Uploaded hazard evidence"
-                    style={{
-                      display: "block",
-                      width: "100%",
-                      maxHeight: "300px",
-                      objectFit: "contain",
-                      borderRadius: "10px",
-                      border: "1px solid rgba(56,189,248,0.18)",
-                      background: "#071522",
-                    }}
-                  />
-                </div>
-              )}
-
               <div style={{ marginTop: "14px", color: "#64748b", fontSize: "12px" }}>Coordinates: {Number(selectedReport.latitude).toFixed(5)}, {Number(selectedReport.longitude).toFixed(5)}</div>
             </div>
             <div style={{ marginTop: "14px", color: "#64748b", fontSize: "11px" }}>Report ID: {selectedReport.reportId}</div>
