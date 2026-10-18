@@ -179,6 +179,45 @@ function App() {
   };
 
   // =========================================================
+  // ADMIN: MARK REPORT AS ACTIVE
+  // REVIEW -> ACTIVE
+  // =========================================================
+
+  const markReportAsActive = async (reportId: string) => {
+    if (userRole !== "ADMIN") {
+      alert("Only administrators can activate reports.");
+      return;
+    }
+
+    try {
+      setUpdatingReportId(reportId);
+      const response = await fetch(
+        `https://cw6ehoudu9.execute-api.ap-southeast-2.amazonaws.com/reports/${encodeURIComponent(reportId)}/status`,
+        {
+          method: "PATCH",
+          headers: await getAuthHeaders(),
+          body: JSON.stringify({ status: "ACTIVE" }),
+        }
+      );
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || data.message || "Failed to activate report.");
+      }
+      setBackendReports((reports) =>
+        reports.map((report) =>
+          report.reportId === reportId ? { ...report, status: "ACTIVE" } : report
+        )
+      );
+      alert("Report marked as Active successfully.");
+    } catch (error) {
+      console.error("Error activating report:", error);
+      alert(error instanceof Error ? error.message : "Failed to activate report.");
+    } finally {
+      setUpdatingReportId(null);
+    }
+  };
+
+  // =========================================================
   // ADMIN: MARK REPORT AS RESOLVED
   // =========================================================
 
@@ -259,6 +298,9 @@ function App() {
   // =========================================================
 
   const [backendReports, setBackendReports] = useState<BackendReport[]>([]);
+  const [reportCategoryFilter, setReportCategoryFilter] = useState("ALL");
+  const [reportSeverityFilter, setReportSeverityFilter] = useState("ALL");
+  const [reportStatusFilter, setReportStatusFilter] = useState("ALL");
   const [mapReady, setMapReady] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -283,11 +325,25 @@ function App() {
       : "MEDIUM";
   };
 
-  // Status cards
-  const activeReports = backendReports.filter((report) => {
-    const status = normalizedStatus(report.status);
-    return status === "ACTIVE" || status === "REVIEWED";
+  const reportCategories = Array.from(
+    new Set(backendReports.map((report) => String(report.hazardType || "").trim()).filter(Boolean))
+  ).sort((a, b) => a.localeCompare(b));
+
+  const filteredReports = backendReports.filter((report) => {
+    const categoryMatch = reportCategoryFilter === "ALL" || String(report.hazardType || "").trim() === reportCategoryFilter;
+    const severityMatch = reportSeverityFilter === "ALL" || normalizedSeverity(report.severity) === reportSeverityFilter;
+    const currentStatus = normalizedStatus(report.status);
+    const statusMatch = reportStatusFilter === "ALL" ||
+      (reportStatusFilter === "UNDER_REVIEW" ? currentStatus === "PENDING" || currentStatus === "REVIEW" : currentStatus === reportStatusFilter);
+    return categoryMatch && severityMatch && statusMatch;
   });
+
+  const hasReportFilters = reportCategoryFilter !== "ALL" || reportSeverityFilter !== "ALL" || reportStatusFilter !== "ALL";
+
+  // Status cards
+  const activeReports = backendReports.filter(
+    (report) => normalizedStatus(report.status) === "ACTIVE"
+  );
 
   const pendingReports = backendReports.filter((report) => {
     const status = normalizedStatus(report.status);
@@ -1751,6 +1807,28 @@ function App() {
 
         </div>
 
+        <div
+          style={{
+            display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap",
+            marginBottom: "16px", padding: "12px 14px", borderRadius: "10px",
+            border: "1px solid rgba(56,189,248,0.14)", background: "rgba(15,23,42,0.45)"
+          }}
+        >
+          <span style={{ color: "#94a3b8", fontSize: "11px", fontWeight: 800, letterSpacing: "0.08em" }}>FILTER REPORTS</span>
+          <select value={reportCategoryFilter} onChange={(e) => setReportCategoryFilter(e.target.value)} aria-label="Filter by category" style={{padding:"8px 11px",borderRadius:"8px",border:"1px solid rgba(56,189,248,0.22)",background:"#0b1d2d",color:"#dbeafe",fontSize:"12px"}}>
+            <option value="ALL">All Categories</option>
+            {reportCategories.map((category) => <option key={category} value={category}>{category}</option>)}
+          </select>
+          <select value={reportSeverityFilter} onChange={(e) => setReportSeverityFilter(e.target.value)} aria-label="Filter by severity" style={{padding:"8px 11px",borderRadius:"8px",border:"1px solid rgba(56,189,248,0.22)",background:"#0b1d2d",color:"#dbeafe",fontSize:"12px"}}>
+            <option value="ALL">All Severity</option><option value="HIGH">High</option><option value="MEDIUM">Medium</option><option value="LOW">Low</option>
+          </select>
+          <select value={reportStatusFilter} onChange={(e) => setReportStatusFilter(e.target.value)} aria-label="Filter by status" style={{padding:"8px 11px",borderRadius:"8px",border:"1px solid rgba(56,189,248,0.22)",background:"#0b1d2d",color:"#dbeafe",fontSize:"12px"}}>
+            <option value="ALL">All Status</option><option value="UNDER_REVIEW">Under Review</option><option value="ACTIVE">Active</option><option value="REVIEWED">Reviewed</option><option value="RESOLVED">Resolved</option>
+          </select>
+          {hasReportFilters && <button type="button" onClick={() => {setReportCategoryFilter("ALL");setReportSeverityFilter("ALL");setReportStatusFilter("ALL");}} style={{padding:"8px 11px",borderRadius:"8px",border:"1px solid rgba(148,163,184,0.25)",background:"rgba(148,163,184,0.08)",color:"#cbd5e1",fontSize:"11px",fontWeight:700,cursor:"pointer"}}>Clear Filters</button>}
+          <span style={{marginLeft:"auto",color:"#64748b",fontSize:"11px"}}>Showing {filteredReports.length} of {backendReports.length}</span>
+        </div>
+
         <div className="reports-table">
 
           <div className="table-header">
@@ -1761,7 +1839,7 @@ function App() {
             <span>REPORTED</span>
           </div>
 
-          {backendReports.length === 0 ? (
+          {filteredReports.length === 0 ? (
 
             <div
               className="report-row"
@@ -1772,12 +1850,12 @@ function App() {
                 color: "#94a3b8",
               }}
             >
-              No hazard reports available yet.
+              {hasReportFilters ? "No reports match the selected filters." : "No hazard reports available yet."}
             </div>
 
           ) : (
 
-            backendReports.map((report) => {
+            filteredReports.map((report) => {
 
                 const severity =
                   report.severity === "HIGH"
@@ -1861,78 +1939,23 @@ function App() {
                       </span>
 
                       {userRole === "ADMIN" &&
-                        (report.status === "PENDING" ||
-                          report.status === "REVIEW") && (
-                          <button
-                            type="button"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              markReportAsReviewed(report.reportId);
-                            }}
-                            disabled={
-                              updatingReportId === report.reportId
-                            }
-                            style={{
-                              border: "1px solid rgba(34, 197, 94, 0.45)",
-                              background: "rgba(34, 197, 94, 0.12)",
-                              color: "#86efac",
-                              borderRadius: "8px",
-                              padding: "6px 10px",
-                              fontSize: "11px",
-                              fontWeight: 700,
-                              cursor:
-                                updatingReportId === report.reportId
-                                  ? "not-allowed"
-                                  : "pointer",
-                              opacity:
-                                updatingReportId === report.reportId
-                                  ? 0.6
-                                  : 1,
-                              whiteSpace: "nowrap",
-                            }}
-                          >
-                            {updatingReportId === report.reportId
-                              ? "Updating..."
-                              : "✓ Mark as Reviewed"}
+                        (normalizedStatus(report.status) === "PENDING" || normalizedStatus(report.status) === "REVIEW") && (
+                          <button type="button" onClick={(event) => { event.stopPropagation(); markReportAsActive(report.reportId); }} disabled={updatingReportId === report.reportId} style={{border:"1px solid rgba(239,68,68,0.45)",background:"rgba(239,68,68,0.12)",color:"#fca5a5",borderRadius:"8px",padding:"6px 10px",fontSize:"11px",fontWeight:700,cursor:updatingReportId === report.reportId ? "not-allowed" : "pointer",opacity:updatingReportId === report.reportId ? 0.6 : 1,whiteSpace:"nowrap"}}>
+                            {updatingReportId === report.reportId ? "Updating..." : "✓ Mark as Active"}
                           </button>
                         )}
 
-                      {userRole === "ADMIN" &&
-                        (report.status === "REVIEWED" ||
-                          report.status === "ACTIVE") && (
-                          <button
-                            type="button"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              markReportAsResolved(report.reportId);
-                            }}
-                            disabled={
-                              updatingReportId === report.reportId
-                            }
-                            style={{
-                              border: "1px solid rgba(96, 165, 250, 0.45)",
-                              background: "rgba(96, 165, 250, 0.12)",
-                              color: "#93c5fd",
-                              borderRadius: "8px",
-                              padding: "6px 10px",
-                              fontSize: "11px",
-                              fontWeight: 700,
-                              cursor:
-                                updatingReportId === report.reportId
-                                  ? "not-allowed"
-                                  : "pointer",
-                              opacity:
-                                updatingReportId === report.reportId
-                                  ? 0.6
-                                  : 1,
-                              whiteSpace: "nowrap",
-                            }}
-                          >
-                            {updatingReportId === report.reportId
-                              ? "Updating..."
-                              : "✓ Mark as Resolved"}
-                          </button>
-                        )}
+                      {userRole === "ADMIN" && normalizedStatus(report.status) === "ACTIVE" && (
+                        <button type="button" onClick={(event) => { event.stopPropagation(); markReportAsReviewed(report.reportId); }} disabled={updatingReportId === report.reportId} style={{border:"1px solid rgba(34,197,94,0.45)",background:"rgba(34,197,94,0.12)",color:"#86efac",borderRadius:"8px",padding:"6px 10px",fontSize:"11px",fontWeight:700,cursor:updatingReportId === report.reportId ? "not-allowed" : "pointer",opacity:updatingReportId === report.reportId ? 0.6 : 1,whiteSpace:"nowrap"}}>
+                          {updatingReportId === report.reportId ? "Updating..." : "✓ Mark as Reviewed"}
+                        </button>
+                      )}
+
+                      {userRole === "ADMIN" && normalizedStatus(report.status) === "REVIEWED" && (
+                        <button type="button" onClick={(event) => { event.stopPropagation(); markReportAsResolved(report.reportId); }} disabled={updatingReportId === report.reportId} style={{border:"1px solid rgba(96,165,250,0.45)",background:"rgba(96,165,250,0.12)",color:"#93c5fd",borderRadius:"8px",padding:"6px 10px",fontSize:"11px",fontWeight:700,cursor:updatingReportId === report.reportId ? "not-allowed" : "pointer",opacity:updatingReportId === report.reportId ? 0.6 : 1,whiteSpace:"nowrap"}}>
+                          {updatingReportId === report.reportId ? "Updating..." : "✓ Mark as Resolved"}
+                        </button>
+                      )}
                     </div>
 
                     <span className="time">
