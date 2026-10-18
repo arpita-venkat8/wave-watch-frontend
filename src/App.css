@@ -2337,6 +2337,10 @@ footer {
    COMPACT SPACING BETWEEN DASHBOARD SECTIONS
    Only reduces the excessive vertical gap.
    ========================================= */
-section.reports + section.reports {
-  padding-top: 20px;
+/* Compact only the two dashboard sections that use inline marginTop.
+   Keeps the first Monitoring section unchanged. */
+section.reports[style] {
+  margin-top: 0 !important;
+  padding-top: 20px !important;
+  padding-bottom: 20px !important;
 }
