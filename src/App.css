@@ -1,2346 +1,2356 @@
-/* =========================================
-   WAVE WATCH
-   ========================================= */
+import { useEffect, useRef, useState } from "react";
+import { fetchAuthSession } from "aws-amplify/auth";
+import "./App.css";
 
-* {
-  box-sizing: border-box;
-}
+type BackendReport = {
+  reportId: string;
+  hazardType: string;
+  description: string;
+  location?: string;
+  latitude: number;
+  longitude: number;
+  timestamp: string;
+  severity: "HIGH" | "MEDIUM" | "LOW";
+  status: string;
+};
 
-body {
-  margin: 0;
-}
+type CorrelationSignal = {
+  signalId: string;
+  source: string;
+  text: string;
+  hazardType: string;
+  correlation?: {
+    score: number;
+    hazardMatch: boolean;
+    distanceKm: number | null;
+    timeDifferenceHours: number | null;
+    keywordSimilarity: number;
+  };
+};
 
-.app {
-  min-height: 100vh;
-  background:
-    radial-gradient(
-      circle at 10% 10%,
-      rgba(14, 165, 233, 0.12),
-      transparent 30%
-    ),
-    radial-gradient(
-      circle at 90% 20%,
-      rgba(37, 99, 235, 0.12),
-      transparent 30%
-    ),
-    #06111f;
+type PossibleIncident = {
+  reportId: string;
+  hazardType: string;
+  location?: string | null;
+  severity: "HIGH" | "MEDIUM" | "LOW";
+  correlationScore: number;
+  classification: string;
+  matchedSignals: CorrelationSignal[];
+};
 
-  color: #f8fafc;
-  font-family:
-    Inter,
-    system-ui,
-    -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    sans-serif;
-}
+function App() {
+  const [showModal, setShowModal] = useState(false);
+  const [isMapExpanded, setIsMapExpanded] = useState(false);
 
-/* =========================================
-   NAVBAR
-   ========================================= */
+  const [userRole, setUserRole] = useState<
+    "ADMIN" | "CITIZEN" | null
+  >(null);
 
-.navbar {
-  height: 80px;
-  padding: 0 7%;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+  const [updatingReportId, setUpdatingReportId] =
+    useState<string | null>(null);
+  const [selectedReport, setSelectedReport] =
+    useState<BackendReport | null>(null);
+  const [adminToast, setAdminToast] = useState("");
+  const knownReportIdsRef = useRef<Set<string> | null>(null);
 
-  border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+  const mapContainerRef = useRef<HTMLDivElement | null>(null);
+  const mapRef = useRef<any>(null);
+  const markersRef = useRef<any[]>([]);
 
-  background: rgba(6, 17, 31, 0.8);
-  backdrop-filter: blur(15px);
-}
+  const LOCATION_API_KEY =
+    import.meta.env.VITE_LOCATION_API_KEY as string;
 
-.logo {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
+  const AWS_REGION = "ap-southeast-2";
+  const MAP_STYLE = "Standard";
 
-.logo-icon {
-  font-size: 30px;
-}
+  // =========================================================
+  // AUTHENTICATED API HEADERS
+  // =========================================================
+  // API Gateway now requires a valid Cognito JWT for protected
+  // report and correlation endpoints.
+  const getAuthHeaders = async () => {
+    const session = await fetchAuthSession();
+    const token = session.tokens?.idToken?.toString();
 
-.logo h2 {
-  margin: 0;
-  font-size: 17px;
-  letter-spacing: 2px;
-}
+    if (!token) {
+      throw new Error(
+        "Your login session has expired. Please sign in again."
+      );
+    }
 
-.logo span:last-child {
-  color: #64748b;
-  font-size: 11px;
-}
+    return {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    };
+  };
 
-.nav-status {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  // =========================================================
+  // GET CURRENT USER ROLE
+  // =========================================================
 
-  padding: 8px 14px;
+  useEffect(() => {
+    const loadUserRole = async () => {
+      try {
+        const session = await fetchAuthSession();
 
-  border: 1px solid rgba(34, 197, 94, 0.25);
-  border-radius: 20px;
+        const groups =
+          (session.tokens?.idToken?.payload[
+            "cognito:groups"
+          ] as string[] | undefined) ?? [];
 
-  background: rgba(34, 197, 94, 0.08);
+        if (groups.includes("ADMIN")) {
+          setUserRole("ADMIN");
+        } else if (groups.includes("CITIZEN")) {
+          setUserRole("CITIZEN");
+        } else {
+          setUserRole(null);
+        }
+      } catch (error) {
+        console.error("Unable to determine user role:", error);
+        setUserRole(null);
+      }
+    };
 
-  color: #86efac;
-  font-size: 13px;
-  font-weight: 700;
-}
+    loadUserRole();
+  }, []);
 
-.live-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #22c55e;
-  box-shadow: 0 0 12px #22c55e;
-}
+  // =========================================================
+  // ADMIN: MARK REPORT AS REVIEWED
+  // =========================================================
 
-/* =========================================
-   HERO
-   ========================================= */
+  const markReportAsReviewed = async (reportId: string) => {
+    if (userRole !== "ADMIN") {
+      alert("Only administrators can review reports.");
+      return;
+    }
 
-.hero {
-  min-height: 620px;
-  padding: 90px 7%;
+    try {
+      setUpdatingReportId(reportId);
 
-  display: grid;
-  grid-template-columns: 1.1fr 0.9fr;
-  gap: 60px;
-  align-items: center;
-}
+      const response = await fetch(
+        `https://cw6ehoudu9.execute-api.ap-southeast-2.amazonaws.com/reports/${encodeURIComponent(
+          reportId
+        )}/status`,
+        {
+          method: "PATCH",
+          headers: await getAuthHeaders(),
+          body: JSON.stringify({
+            status: "REVIEWED",
+          }),
+        }
+      );
 
-.hero-badge {
-  display: inline-block;
+      const data = await response.json();
 
-  padding: 8px 14px;
+      if (!response.ok) {
+        throw new Error(
+          data.error ||
+            data.message ||
+            "Failed to update report status."
+        );
+      }
 
-  border: 1px solid rgba(56, 189, 248, 0.25);
-  border-radius: 20px;
+      setBackendReports((currentReports) =>
+        currentReports.map((report) =>
+          report.reportId === reportId
+            ? {
+                ...report,
+                status: "REVIEWED",
+              }
+            : report
+        )
+      );
 
-  background: rgba(14, 165, 233, 0.08);
+      alert("Report marked as Reviewed successfully.");
+    } catch (error) {
+      console.error(
+        "Error updating report status:",
+        error
+      );
 
-  color: #38bdf8;
-  font-size: 12px;
-  font-weight: 800;
-  letter-spacing: 1.5px;
-}
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Failed to update report status."
+      );
+    } finally {
+      setUpdatingReportId(null);
+    }
+  };
 
-.hero h1 {
-  margin: 25px 0;
+  // =========================================================
+  // ADMIN: MARK REPORT AS RESOLVED
+  // =========================================================
 
-  font-size: clamp(48px, 6vw, 76px);
-  line-height: 1.02;
-  letter-spacing: -3px;
-}
+  const markReportAsResolved = async (reportId: string) => {
+    if (userRole !== "ADMIN") {
+      alert("Only administrators can resolve reports.");
+      return;
+    }
 
-.hero h1 span {
-  color: #38bdf8;
-}
+    try {
+      setUpdatingReportId(reportId);
 
-.hero p {
-  max-width: 600px;
+      const response = await fetch(
+        `https://cw6ehoudu9.execute-api.ap-southeast-2.amazonaws.com/reports/${encodeURIComponent(
+          reportId
+        )}/status`,
+        {
+          method: "PATCH",
+          headers: await getAuthHeaders(),
+          body: JSON.stringify({
+            status: "RESOLVED",
+          }),
+        }
+      );
 
-  color: #94a3b8;
+      const data = await response.json();
 
-  font-size: 18px;
-  line-height: 1.7;
-}
+      if (!response.ok) {
+        throw new Error(
+          data.error ||
+            data.message ||
+            "Failed to resolve report."
+        );
+      }
 
-.hero-buttons {
-  display: flex;
-  gap: 15px;
-  margin-top: 30px;
-}
+      setBackendReports((currentReports) =>
+        currentReports.map((report) =>
+          report.reportId === reportId
+            ? {
+                ...report,
+                status: "RESOLVED",
+              }
+            : report
+        )
+      );
 
-.primary-button,
-.secondary-button {
-  padding: 14px 22px;
+      alert("Report marked as Resolved successfully.");
+    } catch (error) {
+      console.error(
+        "Error resolving report:",
+        error
+      );
 
-  border-radius: 12px;
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Failed to resolve report."
+      );
+    } finally {
+      setUpdatingReportId(null);
+    }
+  };
 
-  font-size: 14px;
-  font-weight: 800;
+  // =========================================================
+  // REPORT FORM STATES
+  // =========================================================
 
-  cursor: pointer;
-}
+  const [hazardType, setHazardType] = useState("High Waves");
+  const [customHazardType, setCustomHazardType] = useState("");
+  const [severity, setSeverity] = useState<"HIGH" | "MEDIUM" | "LOW">("MEDIUM");
+  const [location, setLocation] = useState("");
+  const [description, setDescription] = useState("");
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-.primary-button {
-  border: none;
+  // =========================================================
+  // BACKEND REPORTS
+  // =========================================================
 
-  background: linear-gradient(
-    135deg,
-    #0ea5e9,
-    #2563eb
+  const [backendReports, setBackendReports] = useState<BackendReport[]>([]);
+  const [reportCategoryFilter, setReportCategoryFilter] = useState("ALL");
+  const [reportSeverityFilter, setReportSeverityFilter] = useState("ALL");
+  const [reportStatusFilter, setReportStatusFilter] = useState("ALL");
+  const [mapReady, setMapReady] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const [correlationIncidents, setCorrelationIncidents] = useState<PossibleIncident[]>([]);
+  const [isCorrelating, setIsCorrelating] = useState(false);
+  const [correlationUpdated, setCorrelationUpdated] = useState<Date | null>(null);
+  const [correlationError, setCorrelationError] = useState("");
+
+  // =========================================================
+  // REAL DASHBOARD METRICS FROM DYNAMODB REPORTS
+  // =========================================================
+
+  // Normalize status and severity values before calculating dashboard metrics.
+  const normalizedStatus = (status: string | undefined) =>
+    String(status || "PENDING").trim().toUpperCase();
+
+  const normalizedSeverity = (severity: string | undefined) => {
+    const value = String(severity || "MEDIUM").trim().toUpperCase();
+    return value === "HIGH" || value === "MEDIUM" || value === "LOW"
+      ? value
+      : "MEDIUM";
+  };
+
+  // =========================================================
+  // REPORT LIST FILTER DATA
+  // =========================================================
+  const reportCategories = Array.from(
+    new Set(
+      backendReports
+        .map((report) => String(report.hazardType || "").trim())
+        .filter(Boolean)
+    )
+  ).sort((a, b) => a.localeCompare(b));
+
+  const filteredReports = backendReports.filter((report) => {
+    const categoryMatch =
+      reportCategoryFilter === "ALL" ||
+      String(report.hazardType || "").trim() === reportCategoryFilter;
+
+    const severityMatch =
+      reportSeverityFilter === "ALL" ||
+      normalizedSeverity(report.severity) === reportSeverityFilter;
+
+    const normalizedReportStatus = normalizedStatus(report.status);
+    const statusMatch =
+      reportStatusFilter === "ALL" ||
+      (reportStatusFilter === "UNDER_REVIEW"
+        ? normalizedReportStatus === "PENDING" ||
+          normalizedReportStatus === "REVIEW"
+        : normalizedReportStatus === reportStatusFilter);
+
+    return categoryMatch && severityMatch && statusMatch;
+  });
+
+  const hasActiveReportFilters =
+    reportCategoryFilter !== "ALL" ||
+    reportSeverityFilter !== "ALL" ||
+    reportStatusFilter !== "ALL";
+
+  // Status cards
+  const activeReports = backendReports.filter(
+    (report) => normalizedStatus(report.status) === "ACTIVE"
   );
 
-  color: white;
+  const pendingReports = backendReports.filter((report) => {
+    const status = normalizedStatus(report.status);
+    return status === "PENDING" || status === "REVIEW";
+  });
 
-  box-shadow:
-    0 10px 30px rgba(14, 165, 233, 0.25);
+  const resolvedReports = backendReports.filter(
+    (report) => normalizedStatus(report.status) === "RESOLVED"
+  );
 
-  transition: 0.25s;
-}
+  // Severity summary: count every unresolved report, including
+  // Under Review, Reviewed, and Active reports.
+  const highActiveReports = backendReports.filter(
+    (report) =>
+      normalizedSeverity(report.severity) === "HIGH" &&
+      normalizedStatus(report.status) !== "RESOLVED"
+  );
 
-.primary-button:hover {
-  transform: translateY(-3px);
+  const mediumActiveReports = backendReports.filter(
+    (report) =>
+      normalizedSeverity(report.severity) === "MEDIUM" &&
+      normalizedStatus(report.status) !== "RESOLVED"
+  );
 
-  box-shadow:
-    0 15px 35px rgba(14, 165, 233, 0.4);
-}
+  const lowActiveReports = backendReports.filter(
+    (report) =>
+      normalizedSeverity(report.severity) === "LOW" &&
+      normalizedStatus(report.status) !== "RESOLVED"
+  );
 
-.secondary-button {
-  border: 1px solid rgba(148, 163, 184, 0.2);
+  // Current Alerts: all unresolved hazards are current alerts.
+  // Only RESOLVED reports are removed.
+  const currentAlerts = [...backendReports]
+    .filter((report) => normalizedStatus(report.status) !== "RESOLVED")
+    .sort((a, b) => {
+      const severityRank: Record<string, number> = {
+        HIGH: 3,
+        MEDIUM: 2,
+        LOW: 1,
+      };
 
-  background: rgba(15, 30, 48, 0.6);
+      const severityDifference =
+        (severityRank[normalizedSeverity(b.severity)] || 0) -
+        (severityRank[normalizedSeverity(a.severity)] || 0);
 
-  color: #e2e8f0;
-}
+      if (severityDifference !== 0) return severityDifference;
 
-.primary-button.small {
-  padding: 11px 18px;
-}
+      return (
+        new Date(b.timestamp).getTime() -
+        new Date(a.timestamp).getTime()
+      );
+    })
+    .slice(0, 4);
 
-/* =========================================
-   HERO VISUAL
-   ========================================= */
+  // =========================================================
+  // DANGER-ZONE VISUALIZATION DATA
+  // =========================================================
+  const dangerZones = Object.values(
+    backendReports
+      .filter((report) => normalizedStatus(report.status) !== "RESOLVED")
+      .reduce((zones, report) => {
+        const key = report.location || "Unknown location";
+        const severityValue =
+          normalizedSeverity(report.severity) === "HIGH"
+            ? 3
+            : normalizedSeverity(report.severity) === "MEDIUM"
+              ? 2
+              : 1;
+        if (!zones[key]) {
+          zones[key] = { location: key, reports: 0, riskScore: 0, high: 0, medium: 0, low: 0 };
+        }
+        zones[key].reports += 1;
+        zones[key].riskScore += severityValue;
+        if (normalizedSeverity(report.severity) === "HIGH") zones[key].high += 1;
+        else if (normalizedSeverity(report.severity) === "MEDIUM") zones[key].medium += 1;
+        else zones[key].low += 1;
+        return zones;
+      }, {} as Record<string, { location: string; reports: number; riskScore: number; high: number; medium: number; low: number }>)
+  ).sort((a, b) => b.riskScore - a.riskScore).slice(0, 6);
 
-.hero-visual {
-  position: relative;
+  const maxDangerScore = Math.max(1, ...dangerZones.map((zone) => zone.riskScore));
 
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  // =========================================================
+  // INITIALIZE AMAZON LOCATION MAP
+  // =========================================================
 
-  min-height: 420px;
-}
+  useEffect(() => {
+    const maplibregl = (window as any).maplibregl;
 
-.ocean-circle {
-  width: 330px;
-  height: 330px;
+    if (!mapContainerRef.current || !LOCATION_API_KEY || !maplibregl) {
+      return;
+    }
 
-  position: relative;
+    const styleUrl =
+      `https://maps.geo.${AWS_REGION}.amazonaws.com/v2/styles/` +
+      `${MAP_STYLE}/descriptor?key=${encodeURIComponent(
+        LOCATION_API_KEY
+      )}`;
 
-  display: flex;
-  align-items: center;
-  justify-content: center;
+    const map = new maplibregl.Map({
+      container: mapContainerRef.current,
+      style: styleUrl,
 
-  overflow: hidden;
+      // India-wide initial view
+      center: [78.9629, 20.5937],
+      zoom: 4.5,
+    });
 
-  border-radius: 50%;
-
-  background:
-    radial-gradient(
-      circle,
-      #0ea5e9,
-      #075985 45%,
-      #082f49 70%,
-      #06111f
+    map.addControl(
+      new maplibregl.NavigationControl(),
+      "top-right"
     );
 
-  box-shadow:
-    0 0 80px rgba(14, 165, 233, 0.25);
-}
-
-.wave {
-  position: absolute;
-
-  width: 500px;
-  height: 150px;
-
-  border: 3px solid rgba(255, 255, 255, 0.18);
-
-  border-radius: 50%;
-}
-
-.wave-one {
-  transform: rotate(-15deg);
-}
-
-.wave-two {
-  transform: rotate(10deg);
-}
-
-.wave-three {
-  transform: rotate(30deg);
-}
-
-.location-pin {
-  z-index: 3;
-
-  font-size: 60px;
-
-  filter: drop-shadow(
-    0 10px 15px rgba(0, 0, 0, 0.3)
-  );
-}
-
-.floating-card {
-  position: absolute;
-
-  right: 0;
-  bottom: 40px;
-
-  width: 210px;
-
-  padding: 18px;
-
-  border: 1px solid rgba(56, 189, 248, 0.25);
-  border-radius: 15px;
-
-  background: rgba(8, 25, 43, 0.85);
-  backdrop-filter: blur(15px);
-
-  box-shadow:
-    0 20px 50px rgba(0, 0, 0, 0.3);
-}
-
-.small-label {
-  display: block;
-
-  margin-bottom: 7px;
-
-  color: #f87171;
-
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 1px;
-}
-
-.floating-card strong {
-  display: block;
-
-  margin-bottom: 7px;
-
-  font-size: 15px;
-}
-
-.floating-card span:last-child {
-  color: #94a3b8;
-  font-size: 12px;
-}
-
-/* =========================================
-   STATISTICS
-   ========================================= */
-
-.stats {
-  padding: 0 7% 70px;
-
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-
-  gap: 18px;
-}
-
-.stat-card {
-  padding: 24px;
-
-  display: flex;
-  align-items: center;
-  gap: 15px;
-
-  border: 1px solid rgba(148, 163, 184, 0.12);
-  border-radius: 18px;
-
-  background: rgba(15, 30, 48, 0.65);
-
-  backdrop-filter: blur(12px);
-}
-
-.stat-icon {
-  width: 50px;
-  height: 50px;
-
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  border-radius: 13px;
-
-  font-size: 21px;
-}
-
-.stat-icon.red {
-  background: rgba(239, 68, 68, 0.12);
-}
-
-.stat-icon.orange {
-  background: rgba(249, 115, 22, 0.12);
-}
-
-.stat-icon.green {
-  background: rgba(34, 197, 94, 0.12);
-}
-
-.stat-icon.blue {
-  background: rgba(14, 165, 233, 0.12);
-}
-
-.stat-card span {
-  display: block;
-
-  margin-bottom: 5px;
-
-  color: #64748b;
-
-  font-size: 12px;
-}
-
-.stat-card strong {
-  font-size: 27px;
-}
-
-/* =========================================
-   COMMON SECTIONS
-   ========================================= */
-
-.monitoring,
-.reports {
-  padding: 70px 7%;
-}
-
-.section-heading {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-
-  margin-bottom: 30px;
-}
-
-.section-tag {
-  color: #38bdf8;
-
-  font-size: 11px;
-  font-weight: 800;
-
-  letter-spacing: 2px;
-}
-
-.section-heading h2 {
-  margin: 8px 0;
-
-  font-size: 34px;
-
-  letter-spacing: -1px;
-}
-
-.section-heading p {
-  margin: 0;
-
-  color: #64748b;
-}
-
-.live-status {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-
-  padding: 8px 13px;
-
-  border-radius: 20px;
-
-  background: rgba(34, 197, 94, 0.08);
-
-  color: #86efac;
-
-  font-size: 11px;
-  font-weight: 800;
-}
-
-.live-status span {
-  width: 7px;
-  height: 7px;
-
-  border-radius: 50%;
-
-  background: #22c55e;
-}
-
-/* =========================================
-   MONITORING GRID
-   ========================================= */
-
-.monitor-grid {
-  display: grid;
-
-  grid-template-columns: 1.5fr 0.8fr;
-
-  gap: 20px;
-}
-
-.map-card,
-.alert-card {
-  padding: 25px;
-
-  border: 1px solid rgba(148, 163, 184, 0.12);
-  border-radius: 20px;
-
-  background: rgba(15, 30, 48, 0.65);
-
-  backdrop-filter: blur(12px);
-}
-
-.map-header,
-.alert-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-
-  margin-bottom: 20px;
-}
-
-.map-header h3,
-.alert-header h3 {
-  margin: 0 0 5px;
-
-  font-size: 18px;
-}
-
-.map-header span {
-  color: #64748b;
-  font-size: 12px;
-}
-
-.map-button {
-  padding: 8px 12px;
-
-  border: 1px solid rgba(148, 163, 184, 0.15);
-  border-radius: 8px;
-
-  background: transparent;
-
-  color: #94a3b8;
-
-  font-size: 11px;
-}
-
-/* =========================================
-   MAP
-   ========================================= */
-
-.fake-map {
-  height: 330px;
-
-  position: relative;
-
-  overflow: hidden;
-
-  border-radius: 15px;
-
-  background:
-    linear-gradient(
-      120deg,
-      #092a42,
-      #06385c,
-      #0b263e
-    );
-}
-
-.map-grid {
-  position: absolute;
-  inset: 0;
-
-  opacity: 0.2;
-
-  background-image:
-    linear-gradient(
-      rgba(255, 255, 255, 0.15) 1px,
-      transparent 1px
-    ),
-    linear-gradient(
-      90deg,
-      rgba(255, 255, 255, 0.15) 1px,
-      transparent 1px
+    map.on("load", () => {
+      setMapReady(true);
+    });
+
+    mapRef.current = map;
+
+    return () => {
+      markersRef.current.forEach((marker) => marker.remove());
+      markersRef.current = [];
+
+      map.remove();
+      mapRef.current = null;
+      setMapReady(false);
+    };
+  }, [LOCATION_API_KEY]);
+
+  // =========================================================
+  // RESIZE MAP WHEN EXPANDED
+  // =========================================================
+
+  useEffect(() => {
+    if (!mapRef.current) return;
+
+    const frame = requestAnimationFrame(() => {
+      mapRef.current.resize();
+    });
+
+    return () => cancelAnimationFrame(frame);
+  }, [isMapExpanded]);
+
+  // =========================================================
+  // DISPLAY ALL BACKEND HAZARDS ON MAP
+  // =========================================================
+
+  useEffect(() => {
+    if (!mapRef.current || !mapReady) return;
+
+    const maplibregl = (window as any).maplibregl;
+
+    if (!maplibregl) return;
+
+    // Remove previous markers
+    markersRef.current.forEach((marker) => marker.remove());
+    markersRef.current = [];
+
+    // Add backend reports
+    backendReports.forEach((report) => {
+      const color =
+        report.severity === "HIGH"
+          ? "#ef4444"
+          : report.severity === "MEDIUM"
+            ? "#f59e0b"
+            : "#22c55e";
+
+      const marker = new maplibregl.Marker({ color })
+        .setLngLat([
+          Number(report.longitude),
+          Number(report.latitude),
+        ])
+        .setPopup(
+          new maplibregl.Popup({ offset: 25 }).setHTML(`
+            <strong>${report.hazardType}</strong>
+            <br/>
+            📍 ${report.location || "Reported location"}
+            <br/>
+            Severity: ${report.severity}
+            <br/>
+            ${report.description}
+          `)
+        )
+        .addTo(mapRef.current);
+
+      markersRef.current.push(marker);
+    });
+  }, [backendReports, mapReady]);
+
+  // =========================================================
+  // FETCH REPORTS FROM API
+  // =========================================================
+
+  const fetchReports = async () => {
+    try {
+      setIsRefreshing(true);
+
+      const response = await fetch(
+        "https://cw6ehoudu9.execute-api.ap-southeast-2.amazonaws.com/reports",
+        {
+          cache: "no-store",
+          headers: await getAuthHeaders(),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to fetch reports");
+      }
+
+      const normalizedReports: BackendReport[] = (data.reports || [])
+        .map((report: BackendReport) => ({
+          ...report,
+          severity: (() => {
+            const value = String(report.severity || "MEDIUM")
+              .trim()
+              .toUpperCase();
+            return value === "HIGH" || value === "MEDIUM" || value === "LOW"
+              ? value
+              : "MEDIUM";
+          })(),
+          status: String(report.status || "PENDING")
+            .trim()
+            .toUpperCase(),
+        }))
+        .sort((a: BackendReport, b: BackendReport) => {
+          return (
+            new Date(b.timestamp).getTime() -
+            new Date(a.timestamp).getTime()
+          );
+        });
+
+      const previousIds = knownReportIdsRef.current;
+      const currentIds = new Set(normalizedReports.map((report) => report.reportId));
+      if (userRole === "ADMIN" && previousIds) {
+        const newReports = normalizedReports.filter((report) => !previousIds.has(report.reportId));
+        if (newReports.length > 0) {
+          setAdminToast(`🚨 New hazard report received: ${newReports[0].hazardType}`);
+          window.setTimeout(() => setAdminToast(""), 5000);
+          void runCorrelation();
+        }
+      }
+      knownReportIdsRef.current = currentIds;
+      setBackendReports(normalizedReports);
+      setLastUpdated(new Date());
+    } catch (error) {
+      console.error("Error fetching reports:", error);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  // Load reports when application starts
+  useEffect(() => {
+    fetchReports();
+    const refreshTimer = window.setInterval(fetchReports, 30000);
+    return () => window.clearInterval(refreshTimer);
+  }, []);
+
+  // ADMIN: automatic correlation when the admin dashboard opens.
+  useEffect(() => {
+    if (userRole !== "ADMIN") return;
+    const analyzeOnLoad = async () => {
+      await fetchReports();
+      await runCorrelation();
+    };
+    void analyzeOnLoad();
+  }, [userRole]);
+
+  // =========================================================
+  // RUN SOCIAL SIGNAL CORRELATION
+  // =========================================================
+
+  const runCorrelation = async () => {
+    try {
+      setIsCorrelating(true);
+      setCorrelationError("");
+
+      const response = await fetch(
+        "https://cw6ehoudu9.execute-api.ap-southeast-2.amazonaws.com/correlation",
+        {
+          method: "POST",
+          headers: await getAuthHeaders(),
+          body: JSON.stringify({}),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.error || data.message || "Correlation analysis failed."
+        );
+      }
+
+      setCorrelationIncidents(data.incidents || []);
+      setCorrelationUpdated(new Date());
+    } catch (error) {
+      console.error("Correlation analysis error:", error);
+      setCorrelationError(
+        error instanceof Error
+          ? error.message
+          : "Correlation analysis failed. Please try again."
+      );
+    } finally {
+      setIsCorrelating(false);
+    }
+  };
+
+  // =========================================================
+  // SCROLL TO MAP
+  // =========================================================
+
+  const scrollToMap = () => {
+    document.getElementById("hazard-map")?.scrollIntoView({
+      behavior: "smooth",
+      block: "center",
+    });
+  };
+
+  // =========================================================
+  // AMAZON LOCATION SEARCH
+  // =========================================================
+
+  const searchLocation = async (searchText: string) => {
+    const url =
+      `https://places.geo.${AWS_REGION}.amazonaws.com/v2/search-text` +
+      `?key=${encodeURIComponent(LOCATION_API_KEY)}`;
+
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        QueryText: searchText,
+        MaxResults: 1,
+
+        // Amazon Location SearchText requires exactly one
+        // of BiasPosition, Filter.BoundingBox, or Filter.Circle.
+        // This biases the search toward the center of India.
+        BiasPosition: [78.9629, 20.5937],
+
+        // Search only within India
+        Filter: {
+          IncludeCountries: ["IND"],
+        },
+
+        IntendedUse: "SingleUse",
+      }),
+    });
+
+    const data = await response.json();
+
+    console.log(
+      "Amazon Location Search Response:",
+      data
     );
 
-  background-size: 45px 45px;
-}
-
-.coastline {
-  position: absolute;
-
-  width: 110%;
-  height: 150%;
-
-  right: -40%;
-  top: -20%;
-
-  background: #dbeafe;
-
-  border-radius: 45% 0 0 55%;
-
-  transform: rotate(-20deg);
-
-  opacity: 0.9;
-}
-
-.map-marker {
-  position: absolute;
-
-  width: 18px;
-  height: 18px;
-
-  border-radius: 50%;
-
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  z-index: 3;
-}
-
-.map-marker span {
-  width: 7px;
-  height: 7px;
-
-  border-radius: 50%;
-
-  background: white;
-}
-
-.marker-one {
-  left: 42%;
-  top: 25%;
-
-  background: #ef4444;
-
-  box-shadow:
-    0 0 0 8px rgba(239, 68, 68, 0.2),
-    0 0 20px #ef4444;
-}
-
-.marker-two {
-  left: 54%;
-  top: 48%;
-
-  background: #f97316;
-
-  box-shadow:
-    0 0 0 8px rgba(249, 115, 22, 0.2),
-    0 0 20px #f97316;
-}
-
-.marker-three {
-  left: 63%;
-  top: 70%;
-
-  background: #22c55e;
-
-  box-shadow:
-    0 0 0 8px rgba(34, 197, 94, 0.2),
-    0 0 20px #22c55e;
-}
-
-.map-label {
-  position: absolute;
-
-  z-index: 4;
-
-  padding: 5px 8px;
-
-  border-radius: 6px;
-
-  background: rgba(6, 17, 31, 0.8);
-
-  color: #e2e8f0;
-
-  font-size: 9px;
-}
-
-.label-one {
-  left: 45%;
-  top: 18%;
-}
-
-.label-two {
-  left: 57%;
-  top: 42%;
-}
-
-.label-three {
-  left: 66%;
-  top: 64%;
-}
-
-.map-center {
-  position: absolute;
-
-  left: 50%;
-  top: 50%;
-
-  transform: translate(-50%, -50%);
-
-  z-index: 2;
-
-  font-size: 30px;
-
-  opacity: 0.4;
-}
-
-.map-legend {
-  display: flex;
-
-  gap: 20px;
-
-  margin-top: 15px;
-}
-
-.map-legend span {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-
-  color: #64748b;
-
-  font-size: 11px;
-}
-
-.map-legend i {
-  width: 7px;
-  height: 7px;
-
-  border-radius: 50%;
-}
-
-.legend-red {
-  background: #ef4444;
-}
-
-.legend-orange {
-  background: #f97316;
-}
-
-.legend-green {
-  background: #22c55e;
-}
-
-/* =========================================
-   ALERTS
-   ========================================= */
-
-.alert-count {
-  width: 28px;
-  height: 28px;
-
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  border-radius: 8px;
-
-  background: rgba(239, 68, 68, 0.12);
-
-  color: #f87171;
-
-  font-size: 12px;
-  font-weight: 800;
-}
-
-.alert-item {
-  display: flex;
-  gap: 13px;
-
-  padding: 17px 0;
-
-  border-bottom: 1px solid rgba(148, 163, 184, 0.1);
-}
-
-.alert-item:last-child {
-  border-bottom: none;
-}
-
-.alert-icon {
-  width: 40px;
-  height: 40px;
-
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  border-radius: 10px;
-
-  background: rgba(14, 165, 233, 0.08);
-}
-
-.alert-item strong,
-.alert-item span,
-.alert-item small {
-  display: block;
-}
-
-.alert-item strong {
-  font-size: 13px;
-}
-
-.alert-item span {
-  margin-top: 4px;
-
-  color: #94a3b8;
-
-  font-size: 11px;
-}
-
-.alert-item small {
-  margin-top: 5px;
-
-  color: #475569;
-
-  font-size: 10px;
-}
-
-/* =========================================
-   REPORTS TABLE
-   ========================================= */
-
-.reports-table {
-  overflow: hidden;
-
-  border: 1px solid rgba(148, 163, 184, 0.12);
-  border-radius: 18px;
-
-  background: rgba(15, 30, 48, 0.65);
-}
-
-.table-header,
-.report-row {
-  display: grid;
-
-  grid-template-columns:
-    1.5fr
-    1.2fr
-    0.8fr
-    1fr
-    0.7fr;
-
-  align-items: center;
-
-  gap: 20px;
-
-  padding: 18px 22px;
-}
-
-.table-header {
-  background: rgba(255, 255, 255, 0.025);
-
-  color: #475569;
-
-  font-size: 10px;
-  font-weight: 800;
-
-  letter-spacing: 1px;
-}
-
-.report-row {
-  border-top: 1px solid rgba(148, 163, 184, 0.08);
-}
-
-.hazard-name {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.report-icon {
-  width: 35px;
-  height: 35px;
-
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  border-radius: 9px;
-
-  background: rgba(14, 165, 233, 0.08);
-}
-
-.hazard-name strong {
-  font-size: 13px;
-}
-
-.location,
-.time {
-  color: #94a3b8;
-
-  font-size: 11px;
-}
-
-.severity,
-.report-status {
-  width: fit-content;
-
-  padding: 5px 9px;
-
-  border-radius: 20px;
-
-  font-size: 10px;
-  font-weight: 800;
-}
-
-.severity.high {
-  background: rgba(239, 68, 68, 0.1);
-  color: #f87171;
-}
-
-.severity.medium {
-  background: rgba(249, 115, 22, 0.1);
-  color: #fb923c;
-}
-
-.severity.low {
-  background: rgba(34, 197, 94, 0.1);
-  color: #4ade80;
-}
-
-.report-status.active {
-  background: rgba(239, 68, 68, 0.08);
-  color: #f87171;
-}
-
-.report-status.under-review {
-  background: rgba(249, 115, 22, 0.08);
-  color: #fb923c;
-}
-
-.report-status.resolved {
-  background: rgba(34, 197, 94, 0.08);
-  color: #4ade80;
-}
-
-/* =========================================
-   AWS SECTION
-   ========================================= */
-
-.aws-section {
-  padding: 80px 7%;
-
-  border-top: 1px solid rgba(148, 163, 184, 0.08);
-  border-bottom: 1px solid rgba(148, 163, 184, 0.08);
-
-  background: rgba(8, 47, 73, 0.15);
-}
-
-.center {
-  display: block;
-
-  text-align: center;
-}
-
-.aws-services {
-  max-width: 900px;
-
-  margin: 40px auto 0;
-
-  display: grid;
-
-  grid-template-columns: repeat(6, 1fr);
-
-  gap: 12px;
-}
-
-.aws-services div {
-  padding: 18px 10px;
-
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-
-  border: 1px solid rgba(148, 163, 184, 0.1);
-  border-radius: 12px;
-
-  background: rgba(15, 30, 48, 0.5);
-}
-
-.aws-services strong {
-  color: #38bdf8;
-
-  font-size: 20px;
-}
-
-.aws-services span {
-  color: #94a3b8;
-
-  font-size: 10px;
-}
-
-/* =========================================
-   FOOTER
-   ========================================= */
-
-footer {
-  padding: 30px 7%;
-
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-
-  color: #475569;
-
-  font-size: 11px;
-}
-
-.footer-logo {
-  color: #38bdf8;
-
-  font-weight: 800;
-  letter-spacing: 1px;
-}
-
-/* =========================================
-   MODAL
-   ========================================= */
-
-.modal-overlay {
-  position: fixed;
-
-  inset: 0;
-
-  z-index: 100;
-
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  padding: 20px;
-
-  background: rgba(2, 6, 23, 0.8);
-
-  backdrop-filter: blur(8px);
-}
-
-.modal {
-  width: min(500px, 100%);
-
-  position: relative;
-
-  padding: 30px;
-
-  border: 1px solid rgba(56, 189, 248, 0.2);
-  border-radius: 20px;
-
-  background: #0b1b30;
-
-  box-shadow:
-    0 30px 80px rgba(0, 0, 0, 0.5);
-}
-
-.close-button {
-  position: absolute;
-
-  right: 18px;
-  top: 15px;
-
-  border: none;
-
-  background: transparent;
-
-  color: #64748b;
-
-  font-size: 25px;
-
-  cursor: pointer;
-}
-
-.modal-icon {
-  font-size: 35px;
-}
-
-.modal h2 {
-  margin: 10px 0;
-
-  font-size: 26px;
-}
-
-.modal p {
-  color: #64748b;
-
-  font-size: 13px;
-  line-height: 1.6;
-}
-
-.modal label {
-  display: block;
-
-  margin-top: 18px;
-  margin-bottom: 7px;
-
-  color: #cbd5e1;
-
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.modal input,
-.modal textarea,
-.modal select {
-  width: 100%;
-
-  padding: 12px;
-
-  border: 1px solid rgba(148, 163, 184, 0.15);
-  border-radius: 9px;
-
-  outline: none;
-
-  background: #06111f;
-
-  color: #f8fafc;
-
-  font-size: 13px;
-}
-
-.modal textarea {
-  resize: vertical;
-}
-
-.modal input:focus,
-.modal textarea:focus,
-.modal select:focus {
-  border-color: #0ea5e9;
-}
-
-.submit {
-  width: 100%;
-
-  margin-top: 22px;
-}
-
-/* =========================================
-   MOBILE
-   ========================================= */
-
-@media (max-width: 900px) {
-
-  .hero {
-    grid-template-columns: 1fr;
-
-    padding-top: 60px;
-  }
-
-  .hero-visual {
-    min-height: 350px;
-  }
-
-  .stats {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  .monitor-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .aws-services {
-    grid-template-columns: repeat(3, 1fr);
-  }
-
-  .table-header {
-    display: none;
-  }
-
-  .report-row {
-    grid-template-columns: 1fr 1fr;
-  }
-}
-
-@media (max-width: 600px) {
-
-  .navbar {
-    padding: 0 20px;
-  }
-
-  .nav-status {
-    display: none;
-  }
-
-  .hero {
-    padding: 55px 20px;
-  }
-
-  .hero h1 {
-    font-size: 48px;
-  }
-
-  .hero-buttons {
-    flex-direction: column;
-  }
-
-  .hero-buttons button {
-    width: 100%;
-  }
-
-  .stats {
-    padding: 0 20px 50px;
-
-    grid-template-columns: 1fr;
-  }
-
-  .monitoring,
-  .reports {
-    padding: 50px 20px;
-  }
-
-  .section-heading {
-    align-items: flex-start;
-
-    flex-direction: column;
-
-    gap: 15px;
-  }
-
-  .fake-map {
-    height: 260px;
-  }
-
-  .aws-section {
-    padding: 60px 20px;
-  }
-
-  .aws-services {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  footer {
-    padding: 25px 20px;
-
-    flex-direction: column;
-
-    gap: 10px;
-  }
-
-  .report-row {
-    grid-template-columns: 1fr;
-
-    gap: 10px;
-  }
-
-  .floating-card {
-    right: 5px;
-  }
-
-  .ocean-circle {
-    width: 270px;
-    height: 270px;
-  }
-}
-
-/* =========================================
-   REAL AMAZON LOCATION MAP
-   ========================================= */
-
-.real-map {
-  width: 100%;
-  height: 330px;
-  position: relative;
-  overflow: hidden;
-  border-radius: 15px;
-}
-
-.real-map .maplibregl-map {
-  width: 100%;
-  height: 100%;
-}
-
-.real-map .maplibregl-ctrl-group {
-  background: rgba(6, 17, 31, 0.9);
-  border: 1px solid rgba(148, 163, 184, 0.2);
-  border-radius: 10px;
-  overflow: hidden;
-}
-
-.real-map .maplibregl-ctrl-group button {
-  margin: 0;
-  width: 30px;
-  height: 30px;
-  background-color: transparent;
-}
-
-.real-map .maplibregl-ctrl-group button:hover {
-  background-color: rgba(56, 189, 248, 0.15);
-}
-
-.map-card.expanded {
-  position: fixed;
-  inset: 20px;
-  z-index: 9999;
-  padding: 25px;
-  background: #0b1b30;
-  border: 1px solid rgba(56, 189, 248, 0.25);
-  box-shadow: 0 30px 100px rgba(0, 0, 0, 0.7);
-}
-
-.map-card.expanded .real-map {
-  height: calc(100vh - 150px);
-}
-
-.map-button {
-  cursor: pointer;
-  transition: 0.2s ease;
-}
-
-.map-button:hover {
-  border-color: rgba(56, 189, 248, 0.5);
-  color: #38bdf8;
-}
-
-@media (max-width: 600px) {
-  .real-map {
-    height: 260px;
-  }
-
-  .map-card.expanded {
-    inset: 10px;
-    padding: 15px;
-  }
-
-  .map-card.expanded .real-map {
-    height: calc(100vh - 120px);
-  }
-}
-
-
-/* =========================================
-   WAVE WATCH HERO ANIMATION ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â FINAL
-   ========================================= */
-.hero-visual::before,.hero-visual::after{content:"";position:absolute;left:50%;top:50%;border-radius:50%;pointer-events:none;transform:translate(-50%,-50%)}
-.hero-visual::before{width:390px;height:390px;border:1px solid rgba(56,189,248,.22);box-shadow:0 0 35px rgba(14,165,233,.12),inset 0 0 35px rgba(14,165,233,.05);animation:heroRadarPulse 3s ease-in-out infinite}
-.hero-visual::after{width:450px;height:450px;border:1px dashed rgba(56,189,248,.12);animation:heroRadarSpin 14s linear infinite}
-.ocean-circle{z-index:2;animation:oceanPulse 3s ease-in-out infinite}
-.wave-one{animation:waveMoveOne 4s ease-in-out infinite}.wave-two{animation:waveMoveTwo 5s ease-in-out infinite}.wave-three{animation:waveMoveThree 6s ease-in-out infinite}
-.location-pin{animation:locationPulse 1.8s ease-in-out infinite}.floating-card{z-index:4;animation:alertFloat 3.2s ease-in-out infinite}.small-label{animation:alertBlink 1.8s ease-in-out infinite}
-@keyframes heroRadarPulse{0%,100%{opacity:.35;transform:translate(-50%,-50%) scale(.94)}50%{opacity:1;transform:translate(-50%,-50%) scale(1.04)}}
-@keyframes heroRadarSpin{from{transform:translate(-50%,-50%) rotate(0deg)}to{transform:translate(-50%,-50%) rotate(360deg)}}
-@keyframes oceanPulse{0%,100%{box-shadow:0 0 60px rgba(14,165,233,.22),0 0 100px rgba(14,165,233,.05)}50%{box-shadow:0 0 95px rgba(14,165,233,.42),0 0 145px rgba(14,165,233,.12)}}
-@keyframes waveMoveOne{0%,100%{transform:rotate(-15deg) translateX(-18px) scale(.98);opacity:.55}50%{transform:rotate(-15deg) translateX(18px) scale(1.03);opacity:1}}
-@keyframes waveMoveTwo{0%,100%{transform:rotate(10deg) translateX(18px) scale(1.02);opacity:.45}50%{transform:rotate(10deg) translateX(-18px) scale(.97);opacity:.9}}
-@keyframes waveMoveThree{0%,100%{transform:rotate(30deg) translateX(-14px);opacity:.4}50%{transform:rotate(30deg) translateX(14px);opacity:.85}}
-@keyframes locationPulse{0%,100%{transform:translateY(0) scale(1);filter:drop-shadow(0 10px 15px rgba(0,0,0,.3))}50%{transform:translateY(-10px) scale(1.08);filter:drop-shadow(0 10px 15px rgba(0,0,0,.3)) drop-shadow(0 0 18px rgba(248,113,113,.65))}}
-@keyframes alertFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
-@keyframes alertBlink{0%,100%{opacity:1;text-shadow:0 0 0 rgba(248,113,113,0)}50%{opacity:.65;text-shadow:0 0 12px rgba(248,113,113,.65)}}
-@media (prefers-reduced-motion:reduce){.hero-visual::before,.hero-visual::after,.ocean-circle,.wave-one,.wave-two,.wave-three,.location-pin,.floating-card,.small-label{animation:none!important}}
-/* =========================================================
-   PROFESSIONAL UI POLISH Ã¢â‚¬â€ VISUAL ONLY
-   No application logic or backend behavior is changed.
-   ========================================================= */
-
-:root {
-  --ww-bg: #071321;
-  --ww-panel: rgba(13, 29, 47, 0.86);
-  --ww-panel-solid: #0c1c2e;
-  --ww-border: rgba(148, 163, 184, 0.16);
-  --ww-border-strong: rgba(56, 189, 248, 0.28);
-  --ww-text: #f8fafc;
-  --ww-muted: #8ea0b5;
-  --ww-accent: #38bdf8;
-  --ww-accent-2: #2563eb;
-}
-
-html {
-  scroll-behavior: smooth;
-}
-
-body {
-  background: var(--ww-bg);
-  color: var(--ww-text);
-  -webkit-font-smoothing: antialiased;
-  text-rendering: optimizeLegibility;
-}
-
-button,
-input,
-textarea,
-select {
-  font-family: inherit;
-}
-
-/* Navbar */
-.navbar {
-  position: sticky;
-  top: 0;
-  z-index: 50;
-  height: 72px;
-  padding: 0 clamp(20px, 5vw, 7%);
-  background: rgba(5, 15, 27, 0.88);
-  border-bottom: 1px solid rgba(148, 163, 184, 0.14);
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.16);
-}
-
-/* Hero */
-.hero {
-  position: relative;
-  min-height: 600px;
-  padding: 82px clamp(20px, 7vw, 7%);
-}
-
-.hero h1 {
-  max-width: 760px;
-  font-weight: 800;
-  letter-spacing: -2.5px;
-}
-
-.hero p {
-  color: #9fb0c3;
-}
-
-.hero-badge {
-  box-shadow: 0 8px 25px rgba(14, 165, 233, 0.08);
-}
-
-/* Primary controls */
-.primary-button {
-  background: linear-gradient(135deg, #0ea5e9, #2563eb);
-  border: 1px solid rgba(125, 211, 252, 0.22);
-  box-shadow: 0 10px 28px rgba(14, 165, 233, 0.18);
-}
-
-.primary-button:hover {
-  transform: translateY(-2px);
-  filter: brightness(1.06);
-}
-
-.secondary-button {
-  background: rgba(15, 30, 48, 0.72);
-  border-color: rgba(148, 163, 184, 0.2);
-}
-
-.secondary-button:hover {
-  border-color: rgba(56, 189, 248, 0.38);
-  color: #e0f2fe;
-  background: rgba(14, 165, 233, 0.06);
-}
-
-/* KPI cards */
-.stat-card {
-  border-color: var(--ww-border);
-  background: linear-gradient(
-    145deg,
-    rgba(16, 35, 56, 0.88),
-    rgba(10, 25, 41, 0.82)
+    if (!response.ok) {
+      throw new Error(
+        data.message ||
+          data.error ||
+          "Location search failed"
+      );
+    }
+
+    if (
+      !data.ResultItems ||
+      data.ResultItems.length === 0
+    ) {
+      throw new Error(
+        `Could not find "${searchText}" in India. Please enter a valid Indian location.`
+      );
+    }
+
+    const result = data.ResultItems[0];
+
+    if (
+      !result.Position ||
+      result.Position.length !== 2
+    ) {
+      throw new Error(
+        "Location coordinates were not found."
+      );
+    }
+
+    return {
+      locationName:
+        result.Title || searchText,
+
+      // AWS returns [longitude, latitude]
+      longitude: Number(result.Position[0]),
+      latitude: Number(result.Position[1]),
+    };
+  };
+
+  // =========================================================
+  // UPLOAD PHOTO TO S3 USING A PRESIGNED URL
+  // =========================================================
+
+  const uploadPhotoToS3 = async (file: File) => {
+    const urlResponse = await fetch(
+      "https://cw6ehoudu9.execute-api.ap-southeast-2.amazonaws.com/reports",
+      {
+        method: "POST",
+        headers: await getAuthHeaders(),
+        body: JSON.stringify({
+          action: "upload-url",
+          fileName: file.name,
+          contentType: file.type || "image/jpeg",
+        }),
+      }
+    );
+
+    const urlData = await urlResponse.json();
+
+    if (!urlResponse.ok) {
+      throw new Error(
+        urlData.error || "Could not generate photo upload URL."
+      );
+    }
+
+    const uploadResponse = await fetch(urlData.uploadUrl, {
+      method: "PUT",
+      headers: {
+        "Content-Type": file.type || "image/jpeg",
+      },
+      body: file,
+    });
+
+    if (!uploadResponse.ok) {
+      throw new Error("Photo upload failed. Please try again.");
+    }
+
+    return urlData.photoKey as string;
+  };
+
+  // =========================================================
+  // SUBMIT HAZARD REPORT
+  // =========================================================
+
+  const submitReport = async () => {
+    if (!location.trim() || !description.trim()) {
+      alert(
+        "Please enter the location and description."
+      );
+      return;
+    }
+
+    const finalHazardType =
+      hazardType === "Other"
+        ? customHazardType.trim()
+        : hazardType;
+
+    if (hazardType === "Other" && !finalHazardType) {
+      alert("Please specify the hazard type.");
+      return;
+    }
+
+    if (!LOCATION_API_KEY) {
+      alert(
+        "Amazon Location API key is not configured."
+      );
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      // -----------------------------------------------------
+      // STEP 1: FIND LOCATION USING AMAZON LOCATION
+      // -----------------------------------------------------
+
+      const place = await searchLocation(
+        location.trim()
+      );
+
+      console.log("Found location:", place);
+
+      // -----------------------------------------------------
+      // STEP 2: MOVE MAP TO SEARCHED LOCATION
+      // -----------------------------------------------------
+
+      if (mapRef.current) {
+        mapRef.current.flyTo({
+          center: [
+            place.longitude,
+            place.latitude,
+          ],
+          zoom: 11,
+          essential: true,
+        });
+      }
+
+      // -----------------------------------------------------
+      // STEP 3: UPLOAD PHOTO TO S3 (IF SELECTED)
+      // -----------------------------------------------------
+
+      let photoKey = "";
+
+      if (photoFile) {
+        if (!photoFile.type.startsWith("image/")) {
+          throw new Error("Please select an image file.");
+        }
+
+        if (photoFile.size > 10 * 1024 * 1024) {
+          throw new Error("Photo must be smaller than 10 MB.");
+        }
+
+        photoKey = await uploadPhotoToS3(photoFile);
+      }
+
+      // -----------------------------------------------------
+      // STEP 4: SEND REAL COORDINATES + PHOTO KEY TO API
+      // -----------------------------------------------------
+
+      const response = await fetch(
+        "https://cw6ehoudu9.execute-api.ap-southeast-2.amazonaws.com/reports",
+        {
+          method: "POST",
+          headers: await getAuthHeaders(),
+
+          body: JSON.stringify({
+            hazardType: finalHazardType,
+            severity: severity,
+            description: description,
+
+            // Real location name
+            location: place.locationName,
+
+            // Real coordinates
+            latitude: place.latitude,
+            longitude: place.longitude,
+
+            // S3 photo object key
+            photoKey: photoKey,
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.error ||
+            "Failed to submit report"
+        );
+      }
+
+      console.log("AWS Response:", data);
+
+      // -----------------------------------------------------
+      // STEP 5: REFRESH REPORTS
+      // -----------------------------------------------------
+
+      await fetchReports();
+
+      // -----------------------------------------------------
+      // STEP 6: SUCCESS
+      // -----------------------------------------------------
+
+      alert(
+        `🚨 Hazard reported successfully at ${place.locationName}!`
+      );
+
+      // Clear form
+      setHazardType("High Waves");
+      setCustomHazardType("");
+      setSeverity("MEDIUM");
+      setLocation("");
+      setDescription("");
+      setPhotoFile(null);
+
+      // Close modal
+      setShowModal(false);
+    } catch (error) {
+      console.error(
+        "Error submitting report:",
+        error
+      );
+
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Failed to submit report. Please try again."
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // =========================================================
+  // REPORT DETAILS POPUP
+  // =========================================================
+  const openReportDetails = (report: BackendReport) => {
+    setSelectedReport(report);
+  };
+
+  // =========================================================
+  // UI
+  // =========================================================
+
+  return (
+    <div className="app">
+
+      {/* =====================================================
+          NAVBAR
+      ===================================================== */}
+
+      <nav className="navbar">
+        <div className="logo">
+
+          <span className="logo-icon">
+            🌊
+          </span>
+
+          <div>
+            <h2>WAVE WATCH</h2>
+            <span>
+              Coastal Safety Platform
+            </span>
+          </div>
+
+        </div>
+
+        <div className="nav-status">
+          <span className="live-dot"></span>
+          System Live
+        </div>
+      </nav>
+
+      {adminToast && userRole === "ADMIN" && (
+        <div style={{ position: "fixed", top: "92px", right: "24px", zIndex: 10000, maxWidth: "360px", padding: "14px 18px", borderRadius: "12px", border: "1px solid rgba(34,197,94,0.45)", background: "rgba(5,30,45,0.96)", color: "#bbf7d0", boxShadow: "0 12px 30px rgba(0,0,0,0.35)", fontWeight: 700 }}>
+          {adminToast}
+        </div>
+      )}
+
+      {/* =====================================================
+          HERO
+      ===================================================== */}
+
+      <section className="hero">
+
+        <div className="hero-content">
+
+          <div className="hero-badge">
+            🌊 REAL-TIME COASTAL MONITORING
+          </div>
+
+          <h1>
+            Stay Ahead of
+            <br />
+            <span>Coastal Hazards.</span>
+          </h1>
+
+          <p>
+            Wave Watch helps communities report, monitor
+            and manage coastal hazards using real-time
+            AWS cloud technology.
+          </p>
+
+          <div className="hero-buttons">
+
+            <button
+              className="primary-button"
+              onClick={() => setShowModal(true)}
+            >
+              🚨 Report a Hazard
+            </button>
+
+            <button
+              className="secondary-button"
+              onClick={scrollToMap}
+            >
+              🗺️ View Live Map
+            </button>
+
+          </div>
+
+        </div>
+
+        <div className="hero-visual">
+
+          <div className="coastal-radar">
+
+            <div className="radar-glow"></div>
+            <div className="radar-grid"></div>
+
+            <div className="radar-ring ring-1"></div>
+            <div className="radar-ring ring-2"></div>
+            <div className="radar-ring ring-3"></div>
+            <div className="radar-ring ring-4"></div>
+
+            <div className="radar-cross horizontal"></div>
+            <div className="radar-cross vertical"></div>
+
+            <div className="radar-sweep"></div>
+
+            <span className="radar-point point-1"></span>
+            <span className="radar-point point-2"></span>
+            <span className="radar-point point-3"></span>
+            <span className="radar-point point-4"></span>
+
+            <div className="radar-center"></div>
+
+            <div className="radar-label top">COASTAL SCAN</div>
+            <div className="radar-label bottom">INDIA • LIVE</div>
+
+          </div>
+
+          <div className="floating-card">
+
+            <span className="small-label">
+              LIVE SCAN
+            </span>
+
+            <strong>
+              Coastal Activity
+            </strong>
+
+            <span>
+              ● Monitoring active
+            </span>
+
+          </div>
+
+        </div>
+
+      </section>
+
+      {/* =====================================================
+          LIVE STATISTICS
+      ===================================================== */}
+
+      <section className="stats">
+        <div className="stat-card stat-danger">
+          <div className="stat-icon">🚨</div>
+          <div>
+            <span>Active Hazards</span>
+            <strong>{activeReports.length}</strong>
+            <small>{highActiveReports.length} high severity</small>
+          </div>
+        </div>
+
+        <div className="stat-card stat-warning">
+          <div className="stat-icon">◉</div>
+          <div>
+            <span>Under Review</span>
+            <strong>{pendingReports.length}</strong>
+            <small>Awaiting assessment</small>
+          </div>
+        </div>
+
+        <div className="stat-card stat-success">
+          <div className="stat-icon">✓</div>
+          <div>
+            <span>Resolved</span>
+            <strong>{resolvedReports.length}</strong>
+            <small>Closed reports</small>
+          </div>
+        </div>
+
+        <div className="stat-card stat-info">
+          <div className="stat-icon">◎</div>
+          <div>
+            <span>Citizen Reports</span>
+            <strong>{backendReports.length}</strong>
+            <small>All reports received</small>
+          </div>
+        </div>
+      </section>
+
+      <section className="severity-strip">
+        <div>
+          <span className="severity-dot high"></span>
+          <strong>{highActiveReports.length}</strong> High severity
+        </div>
+        <div>
+          <span className="severity-dot medium"></span>
+          <strong>{mediumActiveReports.length}</strong> Medium severity
+        </div>
+        <div>
+          <span className="severity-dot low"></span>
+          <strong>{lowActiveReports.length}</strong> Low severity
+        </div>
+        <div className="data-refresh">
+          <span className="refresh-dot"></span>
+          {isRefreshing ? "Syncing reports..." : lastUpdated ? `Data synced ${lastUpdated.toLocaleTimeString()}` : "Waiting for data"}
+        </div>
+      </section>
+
+      {/* =====================================================
+          MONITORING
+      ===================================================== */}
+
+      <section className="monitoring">
+
+        <div className="section-heading">
+
+          <div>
+
+            <span className="section-tag">
+              LIVE MONITORING
+            </span>
+
+            <h2>
+              Coastal Hazard Overview
+            </h2>
+
+            <p>
+              Monitor reported hazards across coastal
+              regions.
+            </p>
+
+          </div>
+
+          <div className="live-status">
+            <span></span>
+            LIVE
+          </div>
+
+        </div>
+
+        <div className="monitor-grid">
+
+          {/* =================================================
+              MAP
+          ================================================= */}
+
+          <div
+            id="hazard-map"
+            className={`map-card ${
+              isMapExpanded
+                ? "expanded"
+                : ""
+            }`}
+          >
+
+            <div className="map-header">
+
+              <div>
+
+                <h3>
+                  Hazard Map
+                </h3>
+
+                <span>
+                  India-wide real-time coastal activity
+                </span>
+
+              </div>
+
+              <button
+                className="map-button"
+                onClick={() =>
+                  setIsMapExpanded(
+                    (current) => !current
+                  )
+                }
+              >
+                {isMapExpanded
+                  ? "Close Map ✕"
+                  : "Full Map ↗"}
+              </button>
+
+            </div>
+
+            <div className="real-map">
+
+              <div
+                ref={mapContainerRef}
+                style={{
+                  width: "100%",
+                  height: "100%",
+                }}
+              />
+
+              {!LOCATION_API_KEY && (
+                <div
+                  style={{
+                    position: "absolute",
+                    inset: 0,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    background:
+                      "rgba(6, 17, 31, 0.88)",
+                    color: "#e2e8f0",
+                    padding: "20px",
+                    textAlign: "center",
+                    zIndex: 2,
+                  }}
+                >
+                  Amazon Location API key is not configured.
+                </div>
+              )}
+
+            </div>
+
+            <div className="map-legend">
+
+              <span>
+                <i className="legend-red"></i>
+                High
+              </span>
+
+              <span>
+                <i className="legend-orange"></i>
+                Medium
+              </span>
+
+              <span>
+                <i className="legend-green"></i>
+                Low
+              </span>
+
+            </div>
+
+          </div>
+
+          {/* =================================================
+              ALERT PANEL
+          ================================================= */}
+
+          <div className="alert-card">
+
+            <div className="alert-header">
+
+              <div>
+                <span className="section-tag">
+                  URGENT
+                </span>
+
+                <h3>
+                  Current Alerts
+                </h3>
+              </div>
+
+              <div className="alert-actions">
+                <span className="alert-count">{currentAlerts.length}</span>
+                <button className="text-button" onClick={fetchReports} disabled={isRefreshing}>
+                  {isRefreshing ? "Syncing" : "Refresh"}
+                </button>
+              </div>
+
+            </div>
+
+            {currentAlerts.length === 0 ? (
+              <div
+                style={{
+                  padding: "28px 10px",
+                  textAlign: "center",
+                  color: "#94a3b8",
+                }}
+              >
+                No active alerts right now.
+              </div>
+            ) : (
+              currentAlerts.map((report) => {
+                const alertClass = report.severity.toLowerCase();
+                const alertIcon =
+                  report.severity === "HIGH"
+                    ? "🚨"
+                    : report.severity === "MEDIUM"
+                      ? "⚠️"
+                      : "ℹ️";
+
+                const timeAgo = report.timestamp
+                  ? (() => {
+                      const minutes = Math.max(
+                        0,
+                        Math.floor(
+                          (Date.now() - new Date(report.timestamp).getTime()) /
+                            60000
+                        )
+                      );
+
+                      if (minutes < 1) return "Just now";
+                      if (minutes < 60) return `${minutes} min ago`;
+                      const hours = Math.floor(minutes / 60);
+                      if (hours < 24) return `${hours} hr ago`;
+                      return `${Math.floor(hours / 24)} day(s) ago`;
+                    })()
+                  : "Recently";
+
+                return (
+                  <div
+                    className={`alert-item ${alertClass}`}
+                    key={report.reportId}
+                  >
+                    <div className="alert-icon">
+                      {alertIcon}
+                    </div>
+
+                    <div>
+                      <strong>
+                        {report.hazardType}
+                      </strong>
+
+                      <span>
+                        📍 {report.location || "Reported location"}
+                      </span>
+
+                      <small>
+                        {report.severity} • {
+                            report.status === "PENDING" || report.status === "REVIEW"
+                              ? "Under Review"
+                              : report.status === "REVIEWED"
+                                ? "Reviewed"
+                                : report.status === "RESOLVED"
+                                  ? "Resolved"
+                                  : "Active"
+                          } • {timeAgo}
+                      </small>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+
+          </div>
+
+        </div>
+
+      </section>
+
+      {/* =====================================================
+          DANGER ZONE VISUAL
+      ===================================================== */}
+      <section className="reports" style={{ marginTop: "28px" }}>
+        <div className="section-heading">
+          <div>
+            <span className="section-tag">DANGER ZONE VISUAL</span>
+            <h2>Coastal Risk Density</h2>
+            <p>Visualizes unresolved hazard concentration by reported location.</p>
+          </div>
+          <div className="live-status"><span></span>RISK ANALYSIS</div>
+        </div>
+        {dangerZones.length === 0 ? (
+          <div style={{ padding: "30px", textAlign: "center", color: "#94a3b8", borderRadius: "14px", border: "1px dashed rgba(148,163,184,0.25)" }}>
+            No unresolved danger zones detected.
+          </div>
+        ) : (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: "14px" }}>
+            {dangerZones.map((zone) => {
+              const riskPercent = Math.max(8, Math.round((zone.riskScore / maxDangerScore) * 100));
+              const riskLabel = zone.high > 0 || riskPercent >= 70 ? "HIGH RISK" : riskPercent >= 40 ? "MEDIUM RISK" : "LOW RISK";
+              return (
+                <div key={zone.location} style={{ padding: "18px", borderRadius: "14px", border: "1px solid rgba(56,189,248,0.18)", background: "rgba(15,23,42,0.55)" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", alignItems: "center" }}>
+                    <strong>📍 {zone.location}</strong><span style={{ color: zone.high > 0 ? "#fca5a5" : "#fcd34d", fontSize: "11px", fontWeight: 800 }}>{riskLabel}</span>
+                  </div>
+                  <div style={{ marginTop: "12px", height: "8px", borderRadius: "999px", background: "rgba(148,163,184,0.14)", overflow: "hidden" }}>
+                    <div style={{ width: `${riskPercent}%`, height: "100%", borderRadius: "999px", background: zone.high > 0 ? "#ef4444" : zone.medium > 0 ? "#f59e0b" : "#22c55e" }} />
+                  </div>
+                  <div style={{ marginTop: "10px", display: "flex", justifyContent: "space-between", color: "#94a3b8", fontSize: "12px" }}><span>{zone.reports} unresolved report{zone.reports === 1 ? "" : "s"}</span><span>Risk score: {zone.riskScore}</span></div>
+                  <div style={{ marginTop: "8px", color: "#64748b", fontSize: "11px" }}>High: {zone.high} • Medium: {zone.medium} • Low: {zone.low}</div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </section>
+
+      {/* =====================================================
+          CORRELATION INTELLIGENCE
+      ===================================================== */}
+
+      <section className="reports" style={{ marginTop: "28px" }}>
+        <div className="section-heading">
+          <div>
+            <span className="section-tag">CORRELATION ENGINE</span>
+            <h2>Possible Incident Correlation</h2>
+            <p>
+              Correlates each citizen hazard report with controlled external
+              signals using location, time, hazard type and keyword similarity.
+            </p>
+          </div>
+
+          <button
+            className="primary-button small"
+            onClick={runCorrelation}
+            disabled={isCorrelating}
+          >
+            {isCorrelating ? "Analyzing..." : "Run Correlation Analysis"}
+          </button>
+        </div>
+
+        {correlationError && (
+          <div
+            style={{
+              marginBottom: "16px",
+              padding: "14px 16px",
+              borderRadius: "12px",
+              border: "1px solid rgba(239,68,68,0.35)",
+              background: "rgba(127,29,29,0.18)",
+              color: "#fecaca",
+            }}
+          >
+            Correlation engine error: {correlationError}
+          </div>
+        )}
+
+        {correlationIncidents.length === 0 ? (
+          <div
+            style={{
+              padding: "30px",
+              textAlign: "center",
+              borderRadius: "14px",
+              border: "1px dashed rgba(148,163,184,0.25)",
+              color: "#94a3b8",
+              background: "rgba(15,23,42,0.35)",
+            }}
+          >
+            <strong style={{ display: "block", color: "#cbd5e1" }}>
+              No correlation analysis displayed yet.
+            </strong>
+            <span style={{ display: "block", marginTop: "6px" }}>
+              Run the correlation engine to compare citizen hazard reports
+              against the controlled external-signal dataset.
+            </span>
+          </div>
+        ) : (
+          <div style={{ display: "grid", gap: "16px" }}>
+            {correlationIncidents.map((incident) => {
+              const citizenReport = backendReports.find(
+                (report) => report.reportId === incident.reportId
+              );
+
+              const reportedTime = citizenReport?.timestamp
+                ? new Date(citizenReport.timestamp).toLocaleString()
+                : "Time unavailable";
+
+              return (
+                <div
+                  key={incident.reportId}
+                  style={{
+                    padding: "20px",
+                    borderRadius: "14px",
+                    border: "1px solid rgba(56,189,248,0.18)",
+                    background: "rgba(15,23,42,0.55)",
+                  }}
+                >
+                  {/* POSSIBLE INCIDENT HEADER */}
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "flex-start",
+                      gap: "16px",
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    <div>
+                      <div
+                        style={{
+                          color: "#67e8f9",
+                          fontSize: "11px",
+                          fontWeight: 800,
+                          letterSpacing: "0.12em",
+                          marginBottom: "6px",
+                        }}
+                      >
+                        POSSIBLE INCIDENT
+                      </div>
+                      <strong style={{ fontSize: "20px" }}>
+                        {incident.hazardType}
+                      </strong>
+                      <div
+                        style={{
+                          marginTop: "6px",
+                          color: "#94a3b8",
+                          fontSize: "13px",
+                        }}
+                      >
+                        Incident ID: {incident.reportId}
+                      </div>
+                    </div>
+
+                    <div style={{ textAlign: "right" }}>
+                      <strong style={{ fontSize: "28px" }}>
+                        {incident.correlationScore}%
+                      </strong>
+                      <div style={{ color: "#94a3b8", fontSize: "12px" }}>
+                        overall correlation score
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* CITIZEN HAZARD REPORT */}
+                  <div
+                    style={{
+                      marginTop: "18px",
+                      padding: "16px",
+                      borderRadius: "12px",
+                      border: "1px solid rgba(56,189,248,0.20)",
+                      background: "rgba(8,47,73,0.24)",
+                    }}
+                  >
+                    <div
+                      style={{
+                        color: "#bae6fd",
+                        fontSize: "11px",
+                        fontWeight: 800,
+                        letterSpacing: "0.1em",
+                        marginBottom: "10px",
+                      }}
+                    >
+                      CITIZEN HAZARD REPORT
+                    </div>
+
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+                        gap: "10px",
+                      }}
+                    >
+                      <div>
+                        <span style={{ color: "#64748b", fontSize: "11px" }}>
+                          HAZARD TYPE
+                        </span>
+                        <div style={{ color: "#e2e8f0", marginTop: "3px" }}>
+                          {incident.hazardType}
+                        </div>
+                      </div>
+
+                      <div>
+                        <span style={{ color: "#64748b", fontSize: "11px" }}>
+                          SEVERITY
+                        </span>
+                        <div style={{ color: "#e2e8f0", marginTop: "3px" }}>
+                          {incident.severity}
+                        </div>
+                      </div>
+
+                      <div>
+                        <span style={{ color: "#64748b", fontSize: "11px" }}>
+                          LOCATION
+                        </span>
+                        <div style={{ color: "#e2e8f0", marginTop: "3px" }}>
+                          {citizenReport?.location || incident.location || "Reported location"}
+                        </div>
+                      </div>
+
+                      <div>
+                        <span style={{ color: "#64748b", fontSize: "11px" }}>
+                          REPORTED
+                        </span>
+                        <div style={{ color: "#e2e8f0", marginTop: "3px" }}>
+                          {reportedTime}
+                        </div>
+                      </div>
+                    </div>
+
+                    {citizenReport?.description && (
+                      <div
+                        style={{
+                          marginTop: "12px",
+                          color: "#cbd5e1",
+                          fontSize: "13px",
+                          lineHeight: 1.5,
+                        }}
+                      >
+                        <strong>Report description:</strong>{" "}
+                        {citizenReport.description}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* CORRELATION DIRECTION */}
+                  <div
+                    style={{
+                      textAlign: "center",
+                      padding: "13px 0",
+                      color: "#67e8f9",
+                      fontSize: "12px",
+                      fontWeight: 800,
+                      letterSpacing: "0.08em",
+                    }}
+                  >
+                    ↕ &nbsp; CORRELATED WITH &nbsp; ↕
+                  </div>
+
+                  {/* EXTERNAL SOCIAL SIGNALS */}
+                  <div
+                    style={{
+                      padding: "16px",
+                      borderRadius: "12px",
+                      border: "1px solid rgba(34,197,94,0.18)",
+                      background: "rgba(20,83,45,0.12)",
+                    }}
+                  >
+                    <div
+                      style={{
+                        color: "#bbf7d0",
+                        fontSize: "11px",
+                        fontWeight: 800,
+                        letterSpacing: "0.1em",
+                        marginBottom: "12px",
+                      }}
+                    >
+                      CONTROLLED EXTERNAL / SOCIAL SIGNALS
+                    </div>
+
+                    <div style={{ display: "grid", gap: "10px" }}>
+                      {incident.matchedSignals?.map((signal) => (
+                        <div
+                          key={signal.signalId}
+                          style={{
+                            padding: "12px 14px",
+                            borderRadius: "10px",
+                            background: "rgba(15,23,42,0.48)",
+                            border: "1px solid rgba(56,189,248,0.14)",
+                          }}
+                        >
+                          <div
+                            style={{
+                              display: "flex",
+                              justifyContent: "space-between",
+                              gap: "12px",
+                              flexWrap: "wrap",
+                            }}
+                          >
+                            <strong style={{ color: "#e2e8f0" }}>
+                              {signal.signalId}
+                            </strong>
+                            <span style={{ color: "#7dd3fc", fontWeight: 700 }}>
+                              {signal.correlation?.score ?? 0}% match
+                            </span>
+                          </div>
+
+                          <div
+                            style={{
+                              marginTop: "5px",
+                              color: "#94a3b8",
+                              fontSize: "12px",
+                            }}
+                          >
+                            Source: {signal.source || "External Signal"} • Hazard: {signal.hazardType}
+                          </div>
+
+                          <div
+                            style={{
+                              marginTop: "8px",
+                              color: "#cbd5e1",
+                              fontSize: "13px",
+                              lineHeight: 1.5,
+                            }}
+                          >
+                            “{signal.text}”
+                          </div>
+
+                          {signal.correlation && (
+                            <div
+                              style={{
+                                marginTop: "9px",
+                                color: "#64748b",
+                                fontSize: "11px",
+                              }}
+                            >
+                              Hazard match: {signal.correlation.hazardMatch ? "Yes" : "No"} •{" "}
+                              Distance: {signal.correlation.distanceKm != null
+                                ? `${signal.correlation.distanceKm.toFixed(2)} km`
+                                : "N/A"} •{" "}
+                              Keyword similarity: {Math.round(
+                                signal.correlation.keywordSimilarity * 100
+                              )}%
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div
+                    style={{
+                      marginTop: "14px",
+                      display: "flex",
+                      justifyContent: "space-between",
+                      gap: "12px",
+                      flexWrap: "wrap",
+                      color: "#cbd5e1",
+                      fontSize: "13px",
+                    }}
+                  >
+                    <span>
+                      <strong>Matched social signals:</strong>{" "}
+                      {incident.matchedSignals?.length || 0}
+                    </span>
+                    <span>
+                      <strong>Classification:</strong>{" "}
+                      {incident.classification}
+                    </span>
+                  </div>
+
+                  <div
+                    style={{
+                      marginTop: "10px",
+                      color: "#94a3b8",
+                      fontSize: "12px",
+                    }}
+                  >
+                    Correlation indicates a possible incident; it is not confirmation.
+                    Social signals are supporting evidence and are not treated as verified
+                    citizen reports.
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {correlationUpdated && (
+          <div
+            style={{
+              marginTop: "12px",
+              color: "#64748b",
+              fontSize: "12px",
+            }}
+          >
+            Last analysis: {correlationUpdated.toLocaleTimeString()}
+          </div>
+        )}
+      </section>
+
+      {/* =====================================================
+          RECENT REPORTS
+      ===================================================== */}
+
+      <section className="reports">
+
+        <div className="section-heading">
+
+          <div>
+
+            <span className="section-tag">
+              CITIZEN REPORTS
+            </span>
+
+            <h2>
+              Recent Hazard Reports
+            </h2>
+
+            <p>
+              Latest observations submitted by the community.
+            </p>
+
+          </div>
+
+          <button
+            className="primary-button small"
+            onClick={() =>
+              setShowModal(true)
+            }
+          >
+            + New Report
+          </button>
+
+        </div>
+
+        <div
+          className="report-filters"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "12px",
+            flexWrap: "wrap",
+            marginBottom: "16px",
+            padding: "14px 16px",
+            borderRadius: "12px",
+            border: "1px solid rgba(56,189,248,0.14)",
+            background: "rgba(15,23,42,0.45)",
+          }}
+        >
+          <span style={{ color: "#94a3b8", fontSize: "12px", fontWeight: 800, letterSpacing: "0.08em" }}>
+            FILTER REPORTS
+          </span>
+
+          <select value={reportCategoryFilter} onChange={(event) => setReportCategoryFilter(event.target.value)} aria-label="Filter by category" style={{ minWidth: "190px", padding: "9px 12px", borderRadius: "9px", border: "1px solid rgba(56,189,248,0.25)", background: "#0b1d2d", color: "#dbeafe", fontSize: "13px", outline: "none" }}>
+            <option value="ALL">All Categories</option>
+            {reportCategories.map((category) => (
+              <option key={category} value={category}>{category}</option>
+            ))}
+          </select>
+
+          <select value={reportSeverityFilter} onChange={(event) => setReportSeverityFilter(event.target.value)} aria-label="Filter by severity" style={{ minWidth: "155px", padding: "9px 12px", borderRadius: "9px", border: "1px solid rgba(56,189,248,0.25)", background: "#0b1d2d", color: "#dbeafe", fontSize: "13px", outline: "none" }}>
+            <option value="ALL">All Severity</option>
+            <option value="HIGH">High</option>
+            <option value="MEDIUM">Medium</option>
+            <option value="LOW">Low</option>
+          </select>
+
+          <select value={reportStatusFilter} onChange={(event) => setReportStatusFilter(event.target.value)} aria-label="Filter by status" style={{ minWidth: "165px", padding: "9px 12px", borderRadius: "9px", border: "1px solid rgba(56,189,248,0.25)", background: "#0b1d2d", color: "#dbeafe", fontSize: "13px", outline: "none" }}>
+            <option value="ALL">All Status</option>
+            <option value="UNDER_REVIEW">Under Review</option>
+            <option value="REVIEWED">Reviewed</option>
+            <option value="ACTIVE">Active</option>
+            <option value="RESOLVED">Resolved</option>
+          </select>
+
+          {hasActiveReportFilters && (
+            <button type="button" onClick={() => { setReportCategoryFilter("ALL"); setReportSeverityFilter("ALL"); setReportStatusFilter("ALL"); }} style={{ padding: "9px 12px", borderRadius: "9px", border: "1px solid rgba(148,163,184,0.25)", background: "rgba(148,163,184,0.08)", color: "#cbd5e1", fontSize: "12px", fontWeight: 700, cursor: "pointer" }}>
+              Clear Filters
+            </button>
+          )}
+
+          <span style={{ marginLeft: "auto", color: "#64748b", fontSize: "12px" }}>
+            Showing {filteredReports.length} of {backendReports.length}
+          </span>
+        </div>
+
+        <div className="reports-table">
+
+          <div className="table-header">
+            <span>HAZARD</span>
+            <span>LOCATION</span>
+            <span>SEVERITY</span>
+            <span>STATUS</span>
+            <span>REPORTED</span>
+          </div>
+
+          {filteredReports.length === 0 ? (
+
+            <div
+              className="report-row"
+              style={{
+                display: "flex",
+                justifyContent: "center",
+                padding: "30px",
+                color: "#94a3b8",
+              }}
+            >
+              {hasActiveReportFilters
+                ? "No reports match the selected filters."
+                : "No hazard reports available yet."}
+            </div>
+
+          ) : (
+
+            filteredReports.map((report) => {
+
+                const severity =
+                  report.severity === "HIGH"
+                    ? "High"
+                    : report.severity === "LOW"
+                      ? "Low"
+                      : "Medium";
+
+                const status =
+                  report.status === "PENDING" ||
+                  report.status === "REVIEW"
+                    ? "Under Review"
+                    : report.status === "REVIEWED"
+                      ? "Reviewed"
+                      : report.status === "RESOLVED"
+                        ? "Resolved"
+                        : "Active";
+
+                const reportedTime =
+                  report.timestamp
+                    ? new Date(
+                        report.timestamp
+                      ).toLocaleString()
+                    : "Recently";
+
+                return (
+
+                  <div
+                    className="report-row"
+                    key={report.reportId}
+                    onClick={() => openReportDetails(report)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        openReportDetails(report);
+                      }
+                    }}
+                    style={{ cursor: "pointer" }}
+                  >
+
+                    <div className="hazard-name">
+
+                      <div className="report-icon">
+                        ⚠️
+                      </div>
+
+                      <strong>
+                        {report.hazardType}
+                      </strong>
+
+                    </div>
+
+                    <span className="location">
+                      📍{" "}
+                      {report.location ||
+                        "Reported location"}
+                    </span>
+
+                    <span
+                      className={`severity ${severity.toLowerCase()}`}
+                    >
+                      {severity}
+                    </span>
+
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "8px",
+                        flexWrap: "wrap",
+                      }}
+                    >
+                      <span
+                        className={`report-status ${status
+                          .toLowerCase()
+                          .replace(" ", "-")}`}
+                      >
+                        {status}
+                      </span>
+
+                      {userRole === "ADMIN" &&
+                        (report.status === "PENDING" ||
+                          report.status === "REVIEW") && (
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              markReportAsReviewed(report.reportId);
+                            }}
+                            disabled={
+                              updatingReportId === report.reportId
+                            }
+                            style={{
+                              border: "1px solid rgba(34, 197, 94, 0.45)",
+                              background: "rgba(34, 197, 94, 0.12)",
+                              color: "#86efac",
+                              borderRadius: "8px",
+                              padding: "6px 10px",
+                              fontSize: "11px",
+                              fontWeight: 700,
+                              cursor:
+                                updatingReportId === report.reportId
+                                  ? "not-allowed"
+                                  : "pointer",
+                              opacity:
+                                updatingReportId === report.reportId
+                                  ? 0.6
+                                  : 1,
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {updatingReportId === report.reportId
+                              ? "Updating..."
+                              : "✓ Mark as Reviewed"}
+                          </button>
+                        )}
+
+                      {userRole === "ADMIN" &&
+                        (report.status === "REVIEWED" ||
+                          report.status === "ACTIVE") && (
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              markReportAsResolved(report.reportId);
+                            }}
+                            disabled={
+                              updatingReportId === report.reportId
+                            }
+                            style={{
+                              border: "1px solid rgba(96, 165, 250, 0.45)",
+                              background: "rgba(96, 165, 250, 0.12)",
+                              color: "#93c5fd",
+                              borderRadius: "8px",
+                              padding: "6px 10px",
+                              fontSize: "11px",
+                              fontWeight: 700,
+                              cursor:
+                                updatingReportId === report.reportId
+                                  ? "not-allowed"
+                                  : "pointer",
+                              opacity:
+                                updatingReportId === report.reportId
+                                  ? 0.6
+                                  : 1,
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {updatingReportId === report.reportId
+                              ? "Updating..."
+                              : "✓ Mark as Resolved"}
+                          </button>
+                        )}
+                    </div>
+
+                    <span className="time">
+                      {reportedTime}
+                    </span>
+
+                  </div>
+
+                );
+              })
+
+          )}
+
+        </div>
+
+      </section>
+
+      {/* =====================================================
+          AWS ARCHITECTURE
+      ===================================================== */}
+
+      <section className="aws-section">
+
+        <div className="section-heading center">
+
+          <span className="section-tag">
+            CLOUD INFRASTRUCTURE
+          </span>
+
+          <h2>
+            Powered by AWS
+          </h2>
+
+          <p>
+            Built with scalable AWS services for reliable
+            coastal hazard monitoring.
+          </p>
+
+        </div>
+
+        <div className="aws-services">
+
+          <div>
+            <strong>⚡</strong>
+            <span>Amplify</span>
+          </div>
+
+          <div>
+            <strong>🔗</strong>
+            <span>API Gateway</span>
+          </div>
+
+          <div>
+            <strong>λ</strong>
+            <span>Lambda</span>
+          </div>
+
+          <div>
+            <strong>🗄️</strong>
+            <span>DynamoDB</span>
+          </div>
+
+          <div>
+            <strong>📦</strong>
+            <span>S3</span>
+          </div>
+
+          <div>
+            <strong>📍</strong>
+            <span>Location</span>
+          </div>
+
+        </div>
+
+      </section>
+
+      {/* =====================================================
+          FOOTER
+      ===================================================== */}
+
+      <footer>
+
+        <div className="footer-logo">
+          🌊 WAVE WATCH
+        </div>
+
+        <span>
+          Coastal Hazard Monitoring System
+        </span>
+
+        <span>
+          Built with AWS ☁️
+        </span>
+
+      </footer>
+
+      {/* =====================================================
+          REPORT DETAILS POPUP
+      ===================================================== */}
+      {selectedReport && (
+        <div className="modal-overlay" onClick={() => setSelectedReport(null)}>
+          <div className="modal" onClick={(event) => event.stopPropagation()}>
+            <button className="close-button" onClick={() => setSelectedReport(null)}>×</button>
+            <div className="modal-icon">⚠️</div>
+            <h2>{selectedReport.hazardType}</h2>
+            <p style={{ marginBottom: "18px" }}>Complete hazard report details</p>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: "12px", marginBottom: "18px" }}>
+              <div><small style={{ color: "#64748b" }}>STATUS</small><div style={{ marginTop: "4px", fontWeight: 700 }}>{normalizedStatus(selectedReport.status) === "RESOLVED" ? "Resolved" : normalizedStatus(selectedReport.status) === "REVIEWED" ? "Reviewed" : normalizedStatus(selectedReport.status) === "ACTIVE" ? "Active" : "Under Review"}</div></div>
+              <div><small style={{ color: "#64748b" }}>SEVERITY</small><div style={{ marginTop: "4px", fontWeight: 700 }}>{selectedReport.severity}</div></div>
+              <div><small style={{ color: "#64748b" }}>REPORTED</small><div style={{ marginTop: "4px", fontWeight: 700 }}>{new Date(selectedReport.timestamp).toLocaleString()}</div></div>
+            </div>
+            <div style={{ padding: "14px", borderRadius: "12px", background: "rgba(15,23,42,0.55)", border: "1px solid rgba(56,189,248,0.15)" }}>
+              <strong>📍 Location</strong>
+              <div style={{ marginTop: "5px", color: "#cbd5e1" }}>{selectedReport.location || "Reported location"}</div>
+              <strong style={{ display: "block", marginTop: "14px" }}>📝 Description</strong>
+              <div style={{ marginTop: "5px", color: "#cbd5e1", lineHeight: 1.5 }}>{selectedReport.description || "No description provided."}</div>
+              <div style={{ marginTop: "14px", color: "#64748b", fontSize: "12px" }}>Coordinates: {Number(selectedReport.latitude).toFixed(5)}, {Number(selectedReport.longitude).toFixed(5)}</div>
+            </div>
+            <div style={{ marginTop: "14px", color: "#64748b", fontSize: "11px" }}>Report ID: {selectedReport.reportId}</div>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================
+          REPORT MODAL
+      ===================================================== */}
+
+      {showModal && (
+
+        <div
+          className="modal-overlay"
+          onClick={() =>
+            setShowModal(false)
+          }
+        >
+
+          <div
+            className="modal"
+            onClick={(e) =>
+              e.stopPropagation()
+            }
+          >
+
+            <button
+              className="close-button"
+              onClick={() =>
+                setShowModal(false)
+              }
+            >
+              ×
+            </button>
+
+            <div className="modal-icon">
+              🚨
+            </div>
+
+            <h2>
+              Report a Coastal Hazard
+            </h2>
+
+            <p>
+              Help keep coastal communities safe by
+              reporting what you observe.
+            </p>
+
+            {/* HAZARD TYPE */}
+
+            <label>
+              Hazard Type
+            </label>
+
+            <select
+              value={hazardType}
+              onChange={(e) =>
+                setHazardType(
+                  e.target.value
+                )
+              }
+            >
+
+              <option>
+                High Waves
+              </option>
+
+              <option>
+                Coastal Flooding
+              </option>
+
+              <option>
+                Beach Erosion
+              </option>
+
+              <option>
+                Strong Winds
+              </option>
+
+              <option>
+                Other
+              </option>
+
+            </select>
+
+            {hazardType === "Other" && (
+              <>
+                <label>
+                  Specify Hazard Type
+                </label>
+
+                <input
+                  type="text"
+                  placeholder="e.g. Oil Spill, Tsunami Warning, Jellyfish Bloom"
+                  value={customHazardType}
+                  onChange={(e) =>
+                    setCustomHazardType(e.target.value)
+                  }
+                  maxLength={100}
+                />
+              </>
+            )}
+
+            {/* SEVERITY */}
+
+            <label>
+              Severity
+            </label>
+
+            <select
+              value={severity}
+              onChange={(e) =>
+                setSeverity(
+                  e.target.value as "HIGH" | "MEDIUM" | "LOW"
+                )
+              }
+            >
+              <option value="HIGH">High — Immediate attention</option>
+              <option value="MEDIUM">Medium — Needs monitoring</option>
+              <option value="LOW">Low — Minor / localized</option>
+            </select>
+
+            {/* LOCATION */}
+
+            <label>
+              Location
+            </label>
+
+            <input
+              type="text"
+              placeholder="Enter Indian location e.g. Dindigul"
+              value={location}
+              onChange={(e) =>
+                setLocation(
+                  e.target.value
+                )
+              }
+            />
+
+            {/* DESCRIPTION */}
+
+            <label>
+              Description
+            </label>
+
+            <textarea
+              placeholder="Describe the hazard..."
+              rows={4}
+              value={description}
+              onChange={(e) =>
+                setDescription(
+                  e.target.value
+                )
+              }
+            ></textarea>
+
+            {/* PHOTO */}
+
+            <label>
+              Photo Evidence{" "}
+              <span style={{ opacity: 0.65 }}>
+                (optional)
+              </span>
+            </label>
+
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(e) =>
+                setPhotoFile(
+                  e.target.files?.[0] || null
+                )
+              }
+            />
+
+            {photoFile && (
+              <div
+                style={{
+                  marginTop: "8px",
+                  marginBottom: "16px",
+                  fontSize: "13px",
+                  color: "#94a3b8",
+                }}
+              >
+                📷 Selected: {photoFile.name}
+              </div>
+            )}
+
+            {/* SUBMIT */}
+
+            <button
+              className="primary-button submit"
+              onClick={submitReport}
+              disabled={isSubmitting}
+            >
+              {isSubmitting
+                ? photoFile
+                  ? "Finding location & uploading..."
+                  : "Finding location & submitting..."
+                : "Submit Report"}
+            </button>
+
+          </div>
+
+        </div>
+
+      )}
+
+    </div>
   );
-  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.14);
-  transition: transform 0.2s ease, border-color 0.2s ease;
 }
 
-.stat-card:hover {
-  transform: translateY(-2px);
-  border-color: rgba(56, 189, 248, 0.22);
-}
-
-/* Section headings */
-.section-heading {
-  margin-bottom: 24px;
-}
-
-.section-heading h2 {
-  font-weight: 750;
-}
-
-.section-heading p,
-.map-header span,
-.location,
-.time {
-  color: #8ea0b5;
-}
-
-/* Monitoring panels */
-.map-card,
-.alert-card,
-.reports-table {
-  border-color: var(--ww-border);
-  background: linear-gradient(
-    145deg,
-    rgba(14, 31, 50, 0.92),
-    rgba(9, 23, 38, 0.9)
-  );
-  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.16);
-}
-
-.map-card,
-.alert-card {
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
-}
-
-.map-card:hover,
-.alert-card:hover {
-  border-color: rgba(56, 189, 248, 0.2);
-}
-
-/* Real Amazon Location map */
-.real-map {
-  width: 100%;
-  height: 330px;
-  min-height: 330px;
-  position: relative;
-  overflow: hidden;
-  border-radius: 14px;
-  background: #0b2033;
-  border: 1px solid rgba(148, 163, 184, 0.12);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.015);
-}
-
-.real-map .maplibregl-map {
-  width: 100%;
-  height: 100%;
-}
-
-.real-map .maplibregl-canvas {
-  outline: none;
-}
-
-.real-map .maplibregl-ctrl-top-right {
-  top: 12px;
-  right: 12px;
-}
-
-.real-map .maplibregl-ctrl-group {
-  overflow: hidden;
-  border: 1px solid rgba(148, 163, 184, 0.2);
-  border-radius: 9px;
-  background: rgba(6, 17, 31, 0.9);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
-}
-
-.real-map .maplibregl-ctrl-group button {
-  width: 32px;
-  height: 32px;
-  background-color: transparent;
-}
-
-.real-map .maplibregl-ctrl-group button:hover {
-  background-color: rgba(56, 189, 248, 0.12);
-}
-
-/* Map header button */
-.map-button {
-  border-color: rgba(148, 163, 184, 0.18);
-  background: rgba(255, 255, 255, 0.025);
-  transition: 0.2s ease;
-}
-
-.map-button:hover {
-  border-color: rgba(56, 189, 248, 0.42);
-  color: #7dd3fc;
-  background: rgba(56, 189, 248, 0.06);
-}
-
-/* Alerts */
-.alert-item {
-  transition: background 0.2s ease;
-  border-radius: 10px;
-}
-
-.alert-item:hover {
-  background: rgba(255, 255, 255, 0.018);
-}
-
-/* Reports */
-.reports-table {
-  overflow-x: auto;
-}
-
-.report-row {
-  transition: background 0.18s ease;
-}
-
-.report-row:hover {
-  background: rgba(56, 189, 248, 0.035);
-}
-
-.table-header {
-  color: #71839a;
-  border-bottom: 1px solid rgba(148, 163, 184, 0.08);
-}
-
-/* Modal */
-.modal-overlay {
-  background: rgba(2, 8, 18, 0.78);
-}
-
-.modal {
-  border-color: rgba(56, 189, 248, 0.2);
-  background: linear-gradient(145deg, #0c1e32, #091827);
-  box-shadow:
-    0 30px 90px rgba(0, 0, 0, 0.55),
-    0 0 0 1px rgba(255, 255, 255, 0.02);
-}
-
-.modal input,
-.modal textarea,
-.modal select {
-  border-color: rgba(148, 163, 184, 0.18);
-  background: #071321;
-  transition: border-color 0.18s ease, box-shadow 0.18s ease;
-}
-
-.modal input:focus,
-.modal textarea:focus,
-.modal select:focus {
-  border-color: rgba(14, 165, 233, 0.65);
-  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.08);
-}
-
-/* AWS services */
-.aws-services div {
-  transition: transform 0.18s ease, border-color 0.18s ease,
-    background 0.18s ease;
-}
-
-.aws-services div:hover {
-  transform: translateY(-2px);
-  border-color: rgba(56, 189, 248, 0.22);
-  background: rgba(15, 35, 55, 0.68);
-}
-
-/* Expanded map */
-.map-card.expanded {
-  background: #081827;
-}
-
-.map-card.expanded .real-map {
-  border-color: rgba(56, 189, 248, 0.2);
-}
-
-/* Responsive */
-@media (max-width: 900px) {
-  .hero {
-    padding-top: 64px;
-  }
-
-  .monitoring,
-  .reports {
-    padding-top: 58px;
-    padding-bottom: 58px;
-  }
-}
-
-@media (max-width: 600px) {
-  .navbar {
-    height: 68px;
-  }
-
-  .hero {
-    min-height: auto;
-  }
-
-  .real-map {
-    height: 260px;
-    min-height: 260px;
-  }
-}
-
-/* =========================================================
-   WAVE WATCH â€” COASTAL RADAR HERO
-   ========================================================= */
-
-.hero-visual {
-  position: relative;
-  min-height: 420px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.coastal-radar {
-  position: relative;
-  width: min(390px, 38vw);
-  height: min(390px, 38vw);
-  min-width: 300px;
-  min-height: 300px;
-  max-width: 390px;
-  max-height: 390px;
-  border-radius: 50%;
-  overflow: hidden;
-  background:
-    radial-gradient(circle at center,
-      rgba(14, 165, 233, 0.32) 0%,
-      rgba(7, 48, 76, 0.92) 42%,
-      rgba(4, 24, 42, 0.98) 72%,
-      #06111f 100%);
-  border: 1px solid rgba(56, 189, 248, 0.28);
-  box-shadow:
-    0 0 35px rgba(14, 165, 233, 0.16),
-    0 0 100px rgba(14, 165, 233, 0.10),
-    inset 0 0 45px rgba(14, 165, 233, 0.10);
-}
-
-.radar-glow {
-  position: absolute;
-  inset: 17%;
-  border-radius: 50%;
-  background: radial-gradient(
-    circle,
-    rgba(14, 165, 233, 0.28),
-    rgba(14, 165, 233, 0.08) 42%,
-    transparent 72%
-  );
-  filter: blur(8px);
-}
-
-.radar-grid {
-  position: absolute;
-  inset: 0;
-  opacity: 0.22;
-  background-image:
-    linear-gradient(rgba(125, 211, 252, 0.35) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(125, 211, 252, 0.35) 1px, transparent 1px);
-  background-size: 52px 52px;
-}
-
-.radar-ring {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  border: 1px solid rgba(125, 211, 252, 0.34);
-  border-radius: 50%;
-}
-
-.ring-1 { width: 25%; height: 25%; }
-.ring-2 { width: 45%; height: 45%; }
-.ring-3 { width: 65%; height: 65%; }
-.ring-4 { width: 85%; height: 85%; }
-
-.radar-cross {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  background: rgba(125, 211, 252, 0.30);
-}
-
-.radar-cross.horizontal {
-  width: 100%;
-  height: 1px;
-  transform: translate(-50%, -50%);
-}
-
-.radar-cross.vertical {
-  width: 1px;
-  height: 100%;
-  transform: translate(-50%, -50%);
-}
-
-.radar-sweep {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 47%;
-  height: 47%;
-  transform-origin: 0 0;
-  background: conic-gradient(
-    from -12deg,
-    rgba(34, 211, 238, 0.62),
-    rgba(34, 211, 238, 0.18) 16deg,
-    transparent 38deg
-  );
-  clip-path: polygon(0 0, 100% 0, 0 100%);
-  animation: coastalRadarSweep 4.5s linear infinite;
-  filter: drop-shadow(0 0 10px rgba(34, 211, 238, 0.45));
-}
-
-.radar-center {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 10px;
-  height: 10px;
-  transform: translate(-50%, -50%);
-  border-radius: 50%;
-  background: #67e8f9;
-  box-shadow: 0 0 8px #22d3ee, 0 0 20px rgba(34, 211, 238, 0.9);
-  z-index: 5;
-}
-
-.radar-point {
-  position: absolute;
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: #67e8f9;
-  box-shadow: 0 0 7px #22d3ee, 0 0 16px rgba(34, 211, 238, 0.8);
-  animation: radarPointPulse 2.2s ease-in-out infinite;
-  z-index: 6;
-}
-
-.point-1 { left: 33%; top: 30%; animation-delay: 0.3s; }
-.point-2 { left: 62%; top: 36%; animation-delay: 0.9s; }
-.point-3 { left: 39%; top: 61%; animation-delay: 1.4s; }
-.point-4 { left: 69%; top: 66%; animation-delay: 0.5s; }
-
-.radar-label {
-  position: absolute;
-  z-index: 7;
-  color: rgba(186, 230, 253, 0.72);
-  font-size: 9px;
-  font-weight: 800;
-  letter-spacing: 2px;
-}
-
-.radar-label.top {
-  top: 24px;
-  left: 50%;
-  transform: translateX(-50%);
-}
-
-.radar-label.bottom {
-  bottom: 24px;
-  left: 50%;
-  transform: translateX(-50%);
-}
-
-.floating-card {
-  z-index: 10;
-}
-
-@keyframes coastalRadarSweep {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
-@keyframes radarPointPulse {
-  0%, 100% { transform: scale(0.75); opacity: 0.55; }
-  50% { transform: scale(1.35); opacity: 1; }
-}
-
-@media (max-width: 900px) {
-  .coastal-radar {
-    width: 330px;
-    height: 330px;
-  }
-}
-
-@media (max-width: 600px) {
-  .hero-visual {
-    min-height: 330px;
-  }
-
-  .coastal-radar {
-    width: 280px;
-    height: 280px;
-    min-width: 280px;
-    min-height: 280px;
-  }
-
-  .floating-card {
-    right: 0;
-    bottom: 10px;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .radar-sweep,
-  .radar-point {
-    animation: none;
-  }
-}
-
-/* =========================================================
-   WAVE WATCH â€” PROFESSIONAL CLASSIC DARK BLUE THEME
-   ========================================================= */
-
-:root {
-  --ww-bg: #06111f;
-  --ww-bg-2: #081827;
-  --ww-panel: #0b1b2d;
-  --ww-panel-2: #0e2237;
-  --ww-border: rgba(148, 163, 184, 0.14);
-  --ww-border-strong: rgba(56, 189, 248, 0.24);
-  --ww-text: #e8f1f8;
-  --ww-muted: #8fa4b8;
-  --ww-cyan: #38bdf8;
-  --ww-cyan-soft: #0ea5e9;
-  --ww-high: #f87171;
-  --ww-medium: #fbbf24;
-  --ww-low: #4ade80;
-}
-
-html {
-  scroll-behavior: smooth;
-}
-
-body {
-  margin: 0;
-  background: var(--ww-bg);
-  color: var(--ww-text);
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-}
-
-.app {
-  min-height: 100vh;
-  background:
-    radial-gradient(circle at 85% 0%, rgba(14, 165, 233, 0.08), transparent 28%),
-    linear-gradient(180deg, #06111f 0%, #071522 45%, #06111f 100%);
-}
-
-.navbar {
-  height: 72px;
-  padding: 0 5%;
-  background: rgba(5, 16, 29, 0.94);
-  border-bottom: 1px solid var(--ww-border);
-  backdrop-filter: blur(14px);
-  position: sticky;
-  top: 0;
-  z-index: 100;
-}
-
-.logo h2 {
-  color: #f4f9fc;
-  letter-spacing: 1.5px;
-}
-
-.logo > div > span {
-  color: #7890a5;
-}
-
-.nav-status,
-.live-status {
-  color: #9fb4c7;
-  letter-spacing: 1.4px;
-  font-size: 11px;
-  font-weight: 700;
-}
-
-.live-dot,
-.live-status span,
-.refresh-dot {
-  background: #22c55e;
-  box-shadow: 0 0 10px rgba(34, 197, 94, 0.65);
-}
-
-.hero {
-  min-height: 610px;
-  padding: 70px 7% 55px;
-  background:
-    linear-gradient(90deg, rgba(6, 17, 31, 0.98) 0%, rgba(6, 17, 31, 0.94) 44%, rgba(6, 17, 31, 0.70) 100%),
-    radial-gradient(circle at 80% 45%, rgba(14, 165, 233, 0.11), transparent 34%);
-  border-bottom: 1px solid rgba(56, 189, 248, 0.08);
-}
-
-.hero h1 {
-  color: #f5f9fc;
-  font-weight: 700;
-  letter-spacing: -1.5px;
-}
-
-.hero h1 span {
-  color: #38bdf8;
-}
-
-.hero p {
-  color: #91a6ba;
-  max-width: 590px;
-  line-height: 1.8;
-}
-
-.hero-badge,
-.section-tag {
-  color: #67c9f5;
-  letter-spacing: 1.8px;
-  font-weight: 800;
-}
-
-.primary-button {
-  background: #0f6f9f;
-  border: 1px solid #1688bd;
-  box-shadow: 0 8px 24px rgba(14, 165, 233, 0.12);
-}
-
-.primary-button:hover {
-  background: #1283ba;
-}
-
-.secondary-button,
-.map-button,
-.text-button {
-  background: rgba(11, 27, 45, 0.75);
-  border: 1px solid var(--ww-border-strong);
-  color: #b8d1e3;
-}
-
-.secondary-button:hover,
-.map-button:hover,
-.text-button:hover {
-  background: #102a41;
-  border-color: rgba(56, 189, 248, 0.42);
-  color: #e7f7ff;
-}
-
-.hero-visual {
-  position: relative;
-}
-
-.coastal-radar {
-  background:
-    radial-gradient(circle at center, rgba(30, 128, 172, 0.28) 0%, rgba(8, 38, 61, 0.95) 45%, #06111f 76%);
-  border-color: rgba(56, 189, 248, 0.25);
-  box-shadow: 0 0 60px rgba(14, 165, 233, 0.10), inset 0 0 50px rgba(14, 165, 233, 0.08);
-}
-
-.floating-card {
-  background: rgba(8, 24, 40, 0.94);
-  border: 1px solid rgba(56, 189, 248, 0.18);
-  box-shadow: 0 18px 45px rgba(0, 0, 0, 0.30);
-}
-
-.floating-card strong {
-  color: #e7f3fa;
-}
-
-.floating-card span {
-  color: #8fa8ba;
-}
-
-.stats {
-  background: #071522;
-  border-top: 1px solid var(--ww-border);
-  border-bottom: 1px solid var(--ww-border);
-  padding: 24px 7%;
-  gap: 14px;
-}
-
-.stat-card {
-  background: linear-gradient(145deg, rgba(13, 34, 55, 0.94), rgba(8, 24, 40, 0.96));
-  border: 1px solid var(--ww-border);
-  border-radius: 12px;
-  min-height: 90px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
-}
-
-.stat-card:hover {
-  transform: translateY(-2px);
-  border-color: rgba(56, 189, 248, 0.24);
-}
-
-.stat-card span {
-  color: #91a7b9;
-}
-
-.stat-card strong {
-  color: #eef7fc;
-}
-
-.stat-card small {
-  display: block;
-  margin-top: 3px;
-  color: #657f94;
-  font-size: 10px;
-  letter-spacing: 0.4px;
-}
-
-.stat-icon {
-  color: #7dd3fc !important;
-  background: rgba(14, 165, 233, 0.08) !important;
-  border: 1px solid rgba(56, 189, 248, 0.14);
-}
-
-.severity-strip {
-  width: 86%;
-  margin: 0 auto;
-  padding: 12px 18px;
-  display: flex;
-  align-items: center;
-  gap: 28px;
-  background: #081827;
-  border-left: 1px solid var(--ww-border);
-  border-right: 1px solid var(--ww-border);
-  border-bottom: 1px solid var(--ww-border);
-  color: #8299ad;
-  font-size: 12px;
-}
-
-.severity-strip strong {
-  color: #d9e8f1;
-}
-
-.severity-dot {
-  display: inline-block;
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  margin-right: 7px;
-}
-
-.severity-dot.high { background: var(--ww-high); box-shadow: 0 0 8px rgba(248,113,113,.5); }
-.severity-dot.medium { background: var(--ww-medium); box-shadow: 0 0 8px rgba(251,191,36,.45); }
-.severity-dot.low { background: var(--ww-low); box-shadow: 0 0 8px rgba(74,222,128,.45); }
-
-.data-refresh {
-  margin-left: auto;
-  color: #657f94;
-}
-
-.refresh-dot {
-  display: inline-block;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  margin-right: 7px;
-}
-
-.monitoring,
-.reports,
-.aws-section {
-  background: transparent;
-}
-
-.section-heading h2 {
-  color: #edf5fa;
-  font-weight: 650;
-}
-
-.section-heading p {
-  color: #71889b;
-}
-
-.monitor-grid {
-  gap: 18px;
-}
-
-.map-card,
-.alert-card,
-.reports-table,
-.aws-services > div {
-  background: linear-gradient(145deg, #0b1b2d, #081827);
-  border: 1px solid var(--ww-border);
-  box-shadow: 0 16px 38px rgba(0, 0, 0, 0.13);
-}
-
-.map-card,
-.alert-card {
-  border-radius: 14px;
-}
-
-.map-header {
-  background: rgba(10, 27, 44, 0.96);
-  border-bottom: 1px solid var(--ww-border);
-}
-
-.map-header h3,
-.alert-header h3 {
-  color: #e8f2f8;
-}
-
-.map-header span {
-  color: #71899c;
-}
-
-.real-map {
-  background: #071522;
-}
-
-.alert-header {
-  border-bottom: 1px solid var(--ww-border);
-}
-
-.alert-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.text-button {
-  padding: 6px 9px;
-  border-radius: 6px;
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: .8px;
-  cursor: pointer;
-}
-
-.text-button:disabled {
-  opacity: .55;
-  cursor: default;
-}
-
-.alert-item {
-  background: rgba(255,255,255,.015);
-  border-bottom: 1px solid rgba(148,163,184,.08);
-}
-
-.alert-item:hover {
-  background: rgba(56,189,248,.035);
-}
-
-.alert-item strong {
-  color: #dceaf2;
-}
-
-.alert-item span,
-.alert-item small {
-  color: #71899c;
-}
-
-.alert-item.high { border-left-color: #ef4444; }
-.alert-item.medium { border-left-color: #f59e0b; }
-.alert-item.low { border-left-color: #22c55e; }
-
-.reports-table {
-  overflow: hidden;
-  border-radius: 14px;
-}
-
-.table-header {
-  background: #0d2237;
-  color: #6f879b;
-  border-bottom: 1px solid var(--ww-border);
-}
-
-.report-row {
-  border-bottom: 1px solid rgba(148, 163, 184, 0.08);
-  background: rgba(7, 21, 34, 0.55);
-}
-
-.report-row:hover {
-  background: rgba(14, 165, 233, 0.035);
-}
-
-.hazard-name strong,
-.report-row .location,
-.report-row .time {
-  color: #cbdce7;
-}
-
-.report-icon {
-  background: rgba(14, 165, 233, 0.08);
-  border: 1px solid rgba(56, 189, 248, 0.12);
-}
-
-.severity,
-.report-status {
-  font-weight: 750;
-  letter-spacing: .4px;
-}
-
-.severity.high {
-  color: #fca5a5;
-  background: rgba(239, 68, 68, .10);
-  border-color: rgba(239, 68, 68, .22);
-}
-
-.severity.medium {
-  color: #fcd34d;
-  background: rgba(245, 158, 11, .10);
-  border-color: rgba(245, 158, 11, .22);
-}
-
-.severity.low {
-  color: #86efac;
-  background: rgba(34, 197, 94, .09);
-  border-color: rgba(34, 197, 94, .20);
-}
-
-.report-status.under-review {
-  color: #93c5fd;
-  background: rgba(59, 130, 246, .10);
-  border-color: rgba(59, 130, 246, .20);
-}
-
-.report-status.active {
-  color: #67e8f9;
-  background: rgba(6, 182, 212, .09);
-  border-color: rgba(6, 182, 212, .18);
-}
-
-.report-status.resolved {
-  color: #86efac;
-  background: rgba(34, 197, 94, .09);
-  border-color: rgba(34, 197, 94, .18);
-}
-
-.aws-section {
-  border-top: 1px solid var(--ww-border);
-}
-
-.aws-services > div {
-  border-radius: 10px;
-  color: #9db3c4;
-}
-
-.aws-services strong {
-  color: #67c9f5;
-}
-
-footer {
-  background: #050e19;
-  border-top: 1px solid var(--ww-border);
-  color: #60788b;
-}
-
-.modal-overlay {
-  background: rgba(1, 8, 15, 0.80);
-  backdrop-filter: blur(6px);
-}
-
-.modal {
-  background: linear-gradient(160deg, #0c2135, #071522);
-  border: 1px solid rgba(56, 189, 248, 0.20);
-  box-shadow: 0 30px 90px rgba(0,0,0,.55);
-}
-
-.modal h2 {
-  color: #edf6fb;
-}
-
-.modal p,
-.modal label {
-  color: #8ca4b6;
-}
-
-.modal input,
-.modal textarea,
-.modal select {
-  background: #071522;
-  border: 1px solid rgba(148,163,184,.16);
-  color: #e6f0f5;
-}
-
-.modal input::placeholder,
-.modal textarea::placeholder {
-  color: #536d80;
-}
-
-.modal input:focus,
-.modal textarea:focus,
-.modal select:focus {
-  border-color: rgba(56, 189, 248, .48);
-  box-shadow: 0 0 0 3px rgba(56, 189, 248, .07);
-  outline: none;
-}
-
-@media (max-width: 800px) {
-  .severity-strip {
-    width: auto;
-    margin: 0 5%;
-    flex-wrap: wrap;
-    gap: 14px 22px;
-  }
-
-  .data-refresh {
-    width: 100%;
-    margin-left: 0;
-  }
-}
-
-@media (max-width: 600px) {
-  .hero {
-    padding-left: 5%;
-    padding-right: 5%;
-  }
-
-  .severity-strip {
-    margin: 0 5%;
-  }
-}
-
-/* =========================================
-   COMPACT SPACING BETWEEN DASHBOARD SECTIONS
-   Only reduces the excessive vertical gap.
-   ========================================= */
-/* Compact only the two dashboard sections that use inline marginTop.
-   Keeps the first Monitoring section unchanged. */
-section.reports[style] {
-  margin-top: 0 !important;
-  padding-top: 20px !important;
-  padding-bottom: 20px !important;
-}
+export default App;
