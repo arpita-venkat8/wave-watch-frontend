@@ -12,6 +12,8 @@ type BackendReport = {
   timestamp: string;
   severity: "HIGH" | "MEDIUM" | "LOW";
   status: string;
+  photoKey?: string;
+  photoUrl?: string;
 };
 
 type DashboardSummary = {
@@ -2219,6 +2221,29 @@ function App() {
               <div style={{ marginTop: "5px", color: "#cbd5e1" }}>{selectedReport.location || "Reported location"}</div>
               <strong style={{ display: "block", marginTop: "14px" }}>📝 Description</strong>
               <div style={{ marginTop: "5px", color: "#cbd5e1", lineHeight: 1.5 }}>{selectedReport.description || "No description provided."}</div>
+
+              {/* PHOTO EVIDENCE */}
+              {selectedReport.photoUrl && (
+                <>
+                  <strong style={{ display: "block", marginTop: "14px" }}>📷 Photo</strong>
+                  <a href={selectedReport.photoUrl} target="_blank" rel="noreferrer">
+                    <img
+                      src={selectedReport.photoUrl}
+                      alt="Hazard evidence"
+                      onError={(e) => { e.currentTarget.style.display = "none"; }}
+                      style={{
+                        marginTop: "8px",
+                        width: "100%",
+                        maxHeight: "260px",
+                        objectFit: "cover",
+                        borderRadius: "12px",
+                        border: "1px solid rgba(56,189,248,0.15)",
+                      }}
+                    />
+                  </a>
+                </>
+              )}
+
               <div style={{ marginTop: "14px", color: "#64748b", fontSize: "12px" }}>Coordinates: {Number(selectedReport.latitude).toFixed(5)}, {Number(selectedReport.longitude).toFixed(5)}</div>
             </div>
             <div style={{ marginTop: "14px", color: "#64748b", fontSize: "11px" }}>Report ID: {selectedReport.reportId}</div>
